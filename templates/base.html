@@ -1,0 +1,1314 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}PluckLog{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="icon" href="{{ url_for('static', filename='favicons/favicon-16x16.png') }}" type="image/png" sizes="16x16">
+    <script>
+        // CSRF token disponível no frontend (provisionado no before_request do blueprint)
+        // Colocado como string literal para evitar erro do linter/JS parser
+        window.CSRF_TOKEN = "{{ session.get('csrf_token') or '' }}";
+
+        // Intercepta o fetch global para anexar cabeçalhos padrão e CSRF em métodos mutáveis
+        (function() {
+            const originalFetch = window.fetch.bind(window);
+            window.fetch = function(url, options = {}) {
+                const opts = Object.assign({ credentials: 'same-origin' }, options);
+                const method = String(opts.method || 'GET').toUpperCase();
+                const headers = new Headers(opts.headers || {});
+
+                // Detectar se a URL é de API
+                let isApi = false;
+                try {
+                    const u = typeof url === 'string' ? new URL(url, window.location.href) : null;
+                    const pathname = u ? u.pathname : (url && url.url ? new URL(url.url, window.location.href).pathname : '');
+                    isApi = pathname.startsWith('/api/');
+                } catch (_) {
+                    // Fallback simples para strings relativas
+                    if (typeof url === 'string') {
+                        isApi = url.startsWith('/api/') || url.includes('/api/');
+                    }
+                }
+
+                // Aceitar JSON apenas para chamadas de API (se não já definido)
+                if (isApi && !headers.has('Accept')) {
+                    headers.set('Accept', 'application/json');
+                }
+
+                // Anexar token CSRF para métodos que alteram estado
+                if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(method)) {
+                    if (window.CSRF_TOKEN) headers.set('X-CSRF-Token', window.CSRF_TOKEN);
+                }
+
+                opts.headers = headers;
+                return originalFetch(url, opts);
+            }
+        })();
+
+        // Utilitário global para requisições JSON com tratamento de erros
+        window.fetchJson = async function(url, options = {}) {
+            const resp = await fetch(url, Object.assign({ credentials: 'same-origin' }, options));
+
+            // Redirecionar em 401
+            if (resp.status === 401) {
+                try {
+                    const ct401 = resp.headers.get('content-type') || '';
+                    if (ct401.includes('application/json')) {
+                        const data401 = await resp.json();
+                        if (data401 && data401.redirect) {
+                            window.location.href = data401.redirect;
+                            throw new Error('Não autenticado (401)');
+                        }
+                    }
+                } catch (_) { /* ignore */ }
+                // Fallback para login
+                window.location.href = '/auth/login';
+                throw new Error('Não autenticado (401)');
+            }
+
+            const ct = resp.headers.get('content-type') || '';
+
+            // Tratar erros HTTP não-OK
+            if (!resp.ok) {
+                if (ct.includes('application/json')) {
+                    const errData = await resp.json().catch(() => null);
+                    const msg = errData && (errData.error || errData.message);
+                    throw new Error(msg || `Erro HTTP ${resp.status}`);
+                } else {
+                    const text = await resp.text();
+                    if (text.trim().startsWith('<')) {
+                        throw new SyntaxError(`Resposta HTML inesperada (status ${resp.status}): ${text.substring(0, 120)}...`);
+                    }
+                    throw new Error(`Erro HTTP ${resp.status}: ${text.substring(0, 120)}...`);
+                }
+            }
+
+            // OK: tentar parsear JSON (robusto contra content-type incorreto)
+            if (ct.includes('application/json')) {
+                try {
+                    return await resp.json();
+                } catch (_) {
+                    const text = await resp.clone().text();
+                    if (text.trim().startsWith('<')) {
+                        throw new SyntaxError(`Conteúdo HTML recebido em vez de JSON: ${text.substring(0, 120)}...`);
+                    }
+                    try {
+                        return JSON.parse(text);
+                    } catch (e2) {
+                        throw new SyntaxError(`Conteúdo não-JSON recebido: ${text.substring(0, 120)}...`);
+                    }
+                }
+            } else {
+                const text = await resp.text();
+                try {
+                    return JSON.parse(text);
+                } catch (e) {
+                    if (text.trim().startsWith('<')) {
+                        throw new SyntaxError(`Conteúdo HTML recebido em vez de JSON: ${text.substring(0, 120)}...`);
+                    }
+                    throw new SyntaxError(`Conteúdo não-JSON recebido: ${text.substring(0, 120)}...`);
+                }
+            }
+        };
+    </script>
+    <script>
+        // Override: fetchJson com status/payload e tratamento de falhas de rede
+        (function() {
+            const originalFetchJson = window.fetchJson;
+            window.fetchJson = async function(url, options = {}) {
+                let resp;
+                try {
+                    resp = await fetch(url, Object.assign({ credentials: 'same-origin' }, options));
+                } catch (networkErr) {
+                    const err = new Error('Falha de rede ou CORS ao acessar o servidor.');
+                    err.status = 0;
+                    err.payload = { error: 'network_error', detail: String(networkErr) };
+                    err.aborted = !!(networkErr && (networkErr.name === 'AbortError' || /abort/i.test(String(networkErr)) || /ERR_ABORTED/i.test(String(networkErr))));
+                    throw err;
+                }
+
+                // Redirecionar em 401
+                if (resp.status === 401) {
+                    try {
+                        const ct401 = resp.headers.get('content-type') || '';
+                        if (ct401.includes('application/json')) {
+                            const data401 = await resp.json();
+                            if (data401 && data401.redirect) {
+                                window.location.href = data401.redirect;
+                                const err401 = new Error('Não autenticado (401)');
+                                err401.status = 401;
+                                err401.payload = { error: 'unauthorized' };
+                                throw err401;
+                            }
+                        }
+                    } catch (_) { /* ignore */ }
+                    window.location.href = '/auth/login';
+                    const err401 = new Error('Não autenticado (401)');
+                    err401.status = 401;
+                    err401.payload = { error: 'unauthorized' };
+                    throw err401;
+                }
+
+                const ct = resp.headers.get('content-type') || '';
+
+                if (!resp.ok) {
+                    if (ct.includes('application/json')) {
+                        const errData = await resp.json().catch(() => null);
+                        const msg = errData && (errData.error || errData.message);
+                        const err = new Error(msg || `Erro HTTP ${resp.status}`);
+                        err.status = resp.status;
+                        err.payload = errData;
+                        throw err;
+                    } else {
+                        const text = await resp.text();
+                        if (text.trim().startsWith('<')) {
+                            const err = new SyntaxError(`Resposta HTML inesperada (status ${resp.status}): ${text.substring(0, 120)}...`);
+                            err.status = resp.status;
+                            err.payload = { raw: text };
+                            throw err;
+                        }
+                        const err = new Error(`Erro HTTP ${resp.status}: ${text.substring(0, 120)}...`);
+                        err.status = resp.status;
+                        err.payload = { raw: text };
+                        throw err;
+                    }
+                }
+
+                if (ct.includes('application/json')) {
+                    try {
+                        return await resp.json();
+                    } catch (_) {
+                        const text = await resp.clone().text();
+                        if (text.trim().startsWith('<')) {
+                            const err = new SyntaxError(`Conteúdo HTML recebido em vez de JSON: ${text.substring(0, 120)}...`);
+                            err.status = resp.status;
+                            err.payload = { raw: text };
+                            throw err;
+                        }
+                        try {
+                            return JSON.parse(text);
+                        } catch (e2) {
+                            const err = new SyntaxError(`Conteúdo não-JSON recebido: ${text.substring(0, 120)}...`);
+                            err.status = resp.status;
+                            err.payload = { raw: text };
+                            throw err;
+                        }
+                    }
+                } else {
+                    const text = await resp.text();
+                    try {
+                        return JSON.parse(text);
+                    } catch (e) {
+                        if (text.trim().startsWith('<')) {
+                            const err = new SyntaxError(`Conteúdo HTML recebido em vez de JSON: ${text.substring(0, 120)}...`);
+                            err.status = resp.status;
+                            err.payload = { raw: text };
+                            throw err;
+                        }
+                        const err = new SyntaxError(`Conteúdo não-JSON recebido: ${text.substring(0, 120)}...`);
+                        err.status = resp.status;
+                        err.payload = { raw: text };
+                        throw err;
+                    }
+                }
+            }
+        })();
+    </script>
+    <style>
+        /* Reset básico para evitar espaços desnecessários */
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow-x: hidden;
+        }
+        
+        .sidebar {
+            width: 250px;
+            min-width: 250px;
+            height: calc(100vh - 60px);
+            margin-top: 60px;
+            background-color: #2563eb;
+            color: white;
+            transition: all 0.3s ease;
+            z-index: 1001;
+            overflow-y: auto;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+        }
+        
+        .sidebar.collapsed {
+            width: 60px;
+            min-width: 60px;
+        }
+        
+        .sidebar.collapsed .sidebar-brand h4,
+        .sidebar.collapsed .sidebar-brand small,
+        .sidebar.collapsed .menu-text {
+            display: none;
+        }
+        
+        .sidebar.collapsed .menu-item {
+            justify-content: center;
+            padding: 12px 0;
+        }
+        
+        .sidebar.collapsed .menu-item i {
+            margin-right: 0;
+        }
+        
+        .menu-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 20px;
+            transition: all 0.3s ease;
+        }
+        
+        .menu-item i {
+            margin-right: 12px;
+            width: 20px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+        
+        .menu-text {
+            transition: opacity 0.3s ease;
+        }
+        
+        .sidebar.collapsed .menu-text {
+            opacity: 0;
+        }
+        
+
+        
+        .sidebar.show {
+            left: 0;
+        }
+        
+        .sidebar .nav-link {
+            color: rgba(255, 255, 255, 0.8);
+            padding: 12px 20px;
+            border-radius: 8px;
+            margin: 5px 10px;
+            transition: all 0.3s;
+        }
+        
+        .sidebar .nav-link:hover {
+            color: white;
+            background-color: rgba(255, 255, 255, 0.1);
+            transform: translateX(5px);
+        }
+        
+        .sidebar .nav-link.active {
+            color: white;
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+        
+
+        
+        .main-content {
+            margin-left: 0; /* zera a margem esquerda do conteúdo */
+            margin-top: 60px; /* Espaço para a topbar fixa */
+            padding: 15px 15px 15px 0; /* sem padding à esquerda para colar no nav */
+            height: calc(100vh - 60px);
+            background-color: #f8f9fa;
+            transition: margin-left 0.3s ease;
+            flex: 1;
+            overflow-y: auto;
+            /* Remover width fixo para usar flex naturalmente */
+        }
+        
+        .main-content.collapsed {
+            margin-left: 0; /* mantém zerado também quando colapsado */
+            /* Remover width fixo para usar flex naturalmente */
+        }
+        
+        .layout-container {
+            display: flex;
+            height: 100vh;
+        }
+        
+        .main-content.expanded {
+            margin-left: 0;
+        }
+        
+        .menu-toggle {
+            background: rgba(255,255,255,0.2);
+            border: 2px solid rgba(255,255,255,0.3);
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+            backdrop-filter: blur(10px);
+        }
+        
+        .menu-toggle:hover {
+            background: rgba(255,255,255,0.3);
+            border-color: rgba(255,255,255,0.5);
+            transform: scale(1.05);
+        }
+        
+        .sidebar-brand {
+            padding: 16px;
+            text-align: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            margin-bottom: 20px;
+        }
+        .sidebar.collapsed .sidebar-brand {
+            padding: 8px; /* reduz padding no estado colapsado para caber o ícone */
+        }
+        /* Logos de marca para estados expandido/colapsado */
+        .sidebar-brand .brand-logo-expanded {
+            display: block;
+            margin: 0 auto;
+            width: 200px; /* aumenta a logo conforme pedido */
+            height: auto;
+        }
+        .sidebar-brand .brand-logo {
+            display: none; /* ícone só aparece no estado colapsado */
+            margin: 0 auto;
+            width: 40px;
+            height: 40px;
+        }
+        .sidebar.collapsed .brand-logo-expanded {
+            display: none;
+        }
+        .sidebar.collapsed .brand-logo {
+            display: block;
+        }
+        
+        .sidebar-brand h4 {
+            margin: 0;
+            font-weight: bold;
+        }
+        
+        /* Header/Topbar */
+        .topbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background-color: #2563eb;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 1002;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+        }
+        
+        .topbar-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex: 1;
+        }
+        
+        .topbar-center {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex: 1;
+        }
+        
+        .topbar-right {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            flex: 1;
+        }
+        
+        .topbar-title {
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            margin: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        #current-datetime {
+            font-family: 'Courier New', monospace;
+            font-weight: 500;
+        }
+        
+        .user-avatar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .avatar-dropdown {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+            backdrop-filter: blur(10px);
+        }
+        
+        .avatar-dropdown:hover {
+            background: rgba(255,255,255,0.3);
+            transform: scale(1.05);
+        }
+        
+        .avatar-dropdown i {
+            color: white;
+            font-size: 16px;
+        }
+        .avatar-initials {
+            color: white;
+            font-weight: 700;
+            font-size: 14px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+        
+        .user-name-topbar {
+            color: white;
+            font-size: 14px;
+            font-weight: 500;
+            margin: 0;
+        }
+        
+        .user-dropdown-menu {
+            min-width: 200px;
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+            padding: 8px 0;
+            margin-top: 8px;
+        }
+        
+        .user-dropdown-item {
+            padding: 12px 20px;
+            color: #333;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            transition: all 0.3s;
+        }
+        
+        .user-dropdown-item:hover {
+            background-color: #f8f9fa;
+            color: #2563eb;
+            transform: translateX(5px);
+        }
+        
+        .user-dropdown-item i {
+            margin-right: 12px;
+            width: 16px;
+            text-align: center;
+        }
+        
+        .user-info {
+            padding: 15px 20px;
+            border-bottom: 1px solid #eee;
+            margin-bottom: 5px;
+        }
+        
+        .user-name {
+            font-weight: 600;
+            color: #333;
+            margin: 0;
+            font-size: 14px;
+        }
+        
+        .user-email {
+            color: #666;
+            margin: 0;
+            font-size: 12px;
+        }
+        
+        .card {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s;
+        }
+        
+        .card:hover {
+            transform: none; /* Efeito de movimento removido */
+        }
+        
+        .btn-primary {
+            background-color: #2563eb;
+            border: none;
+            border-radius: 8px;
+        }
+        
+        .btn-primary:hover {
+            background-color: #2563eb;
+            filter: brightness(0.95);
+        }
+
+        /* Remover caret da dropdown para manter só o avatar */
+        .avatar-dropdown.dropdown-toggle::after {
+            display: none !important;
+        }
+        
+        @media (max-width: 768px) {
+            .layout-container {
+                flex-direction: column;
+                height: 100vh;
+            }
+            
+            .sidebar {
+                position: fixed;
+                top: 60px; /* Posicionar abaixo da topbar */
+                left: -100%; /* Esconder por padrão */
+                width: 80%;
+                max-width: 300px;
+                height: calc(100vh - 60px);
+                margin-top: 0;
+                z-index: 1001;
+                transition: left 0.3s ease;
+                overflow-y: auto;
+            }
+            
+            .sidebar.show {
+                left: 0; /* Mostrar quando ativo */
+            }
+            
+            .main-content {
+                margin-left: 0; /* zera a margem à esquerda */
+                margin-top: 60px; /* Espaço para a topbar fixa */
+                padding: 15px;
+                height: calc(100vh - 60px);
+                background-color: #f8f9fa;
+                transition: margin-left 0.3s ease;
+                flex: 1;
+                overflow-y: auto;
+                /* Remover width fixo para usar flex naturalmente */
+            }
+            .main-content {
+                margin-left: 0; /* alinha com largura da sidebar expandida */
+                margin-top: 60px;
+                padding: 15px 15px 15px 0; /* sem espaço à esquerda entre nav e conteúdo */
+                height: calc(100vh - 60px);
+                background-color: #f8f9fa;
+                transition: margin-left 0.3s ease;
+                flex: 1;
+                overflow-y: auto;
+                /* Remover width fixo para usar flex naturalmente */
+            }
+            .main-content {
+                margin-left: 0; /* alinha sem margem com sidebar expandida */
+                margin-top: 60px;
+                padding: 15px 15px 15px 0; /* sem espaço à esquerda entre nav e conteúdo */
+            }
+            .main-content.collapsed {
+                margin-left: 0; /* quando sidebar está colapsada, continua sem margem */
+            }
+            .menu-toggle {
+                display: flex !important;
+            }
+        }
+        
+        /* Badge com cor dinâmica */
+        .badge-dynamic {
+            color: white !important;
+        }
+        
+        /* Overlay para mobile */
+        .mobile-overlay {
+            display: none;
+            position: fixed;
+            top: 60px;
+            left: 0;
+            width: 100%;
+            height: calc(100vh - 60px);
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            transition: opacity 0.3s ease;
+        }
+        
+        .mobile-overlay.show {
+            display: block;
+        }
+    </style>
+    <style>
+        /* Notificações (toast/banners) */
+        .notify-container {
+            position: fixed;
+            top: 75px;
+            right: 20px;
+            width: 360px;
+            max-width: calc(100vw - 40px);
+            z-index: 1050;
+            pointer-events: none;
+        }
+        .notify-item {
+            pointer-events: auto;
+            margin-bottom: 10px;
+            border-radius: 10px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+        }
+        .notify-item .btn-close {
+            float: right;
+        }
+        .help-fab {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1050;
+        }
+        .help-fab .btn {
+            border-radius: 999px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- Container de Notificações -->
+    <div id="notifications" class="notify-container"></div>
+    <!-- Header/Topbar -->
+    <header class="topbar">
+        <div class="topbar-left">
+            <!-- Menu Toggle Button -->
+            <button class="menu-toggle" id="menuToggle">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+
+        <!-- Relógio centralizado -->
+        <div class="topbar-center">
+            <h1 class="topbar-title">
+                <i class="fas fa-clock"></i> <span id="current-datetime"></span>
+            </h1>
+        </div>
+
+        <!-- User Avatar -->
+        <div class="topbar-right">
+        {% if current_user.is_authenticated %}
+        <div class="user-avatar dropdown">
+            <p class="user-name-topbar d-none d-md-block">{{ current_user.nome_completo or current_user.username or current_user.email }}</p>
+            <button class="avatar-dropdown dropdown-toggle" type="button" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                <span class="avatar-initials">
+                    {% set nome = current_user.nome_completo or current_user.username or current_user.email %}
+                    {% set parts = nome.split() %}
+                    {% if parts|length == 0 %}
+                        ?
+                    {% elif parts|length == 1 %}
+                        {{ parts[0][:2]|upper }}
+                    {% else %}
+                        {{ (parts[0][0] ~ parts[-1][0])|upper }}
+                    {% endif %}
+                </span>
+            </button>
+            <ul class="dropdown-menu user-dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                <li class="user-info">
+                    <p class="user-name">{{ current_user.nome_completo or current_user.username or current_user.email }}</p>
+                    <p class="user-email">{{ current_user.email }}</p>
+                </li>
+                <li>
+                    <a class="user-dropdown-item" href="{{ url_for('auth.profile') }}">
+                        <i class="fas fa-user-edit"></i>
+                        Editar Perfil
+                    </a>
+                </li>
+                <li>
+                    <a class="user-dropdown-item" href="{{ url_for('main.configuracoes') }}">
+                        <i class="fas fa-cog"></i>
+                        Configurações
+                    </a>
+                </li>
+                <li><hr class="dropdown-divider"></li>
+                <li>
+                    <a class="user-dropdown-item" href="#" onclick="logout()">
+                        <i class="fas fa-sign-out-alt"></i>
+                        Sair
+                    </a>
+                </li>
+            </ul>
+        </div>
+        {% endif %}
+        </div>
+    </header>
+
+    <!-- Overlay para mobile -->
+    <div class="mobile-overlay" id="mobileOverlay"></div>
+    
+    <div class="layout-container">
+        <!-- Sidebar -->
+        <nav class="sidebar" id="sidebar">
+            <div class="sidebar-brand">
+                <img class="brand-logo-expanded" src="{{ url_for('static', filename='logo_pluck_branco.svg') }}" alt="Logo PluckLog">
+                <img class="brand-logo" src="{{ url_for('static', filename='icone_logo_pluck_branco.svg') }}" alt="Logo PluckLog">
+            </div>
+            
+            {% from 'blocks/menu_blocks.html' import render_personalized_menu %}
+            {{ render_personalized_menu(menu_blocks) }}
+        </nav>
+
+        <!-- Main Content -->
+        <div class="main-content" id="mainContent">
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+            {% block content %}{% endblock %}
+        </div>
+    </div>
+
+    <!-- Botão de Ajuda Global -->
+    <div class="help-fab">
+        <button class="btn btn-primary" id="helpButton" title="Ajuda">
+            <i class="fas fa-question-circle me-2"></i>
+            Ajuda
+        </button>
+    </div>
+
+    <!-- Modal Global de Ajuda -->
+    <div class="modal fade" id="helpModal" tabindex="-1" aria-labelledby="helpModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="helpModalLabel">Instruções de Uso</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    {% block page_help %}
+                    <p>Bem-vindo! Use o menu lateral para navegar entre módulos. Em cada página, ações principais ficam no topo e tabelas apresentam dados com filtros e paginação. Para dúvidas específicas, procure ícones de informação próximos aos elementos.</p>
+                    <ul>
+                        <li>Filtros: ajuste e clique em "Limpar Filtros" para resetar.</li>
+                        <li>Ações: botões com ícones indicam editar, ativar/desativar e excluir.</li>
+                        <li>Notificações: mensagens de sucesso/erro aparecem no canto superior direito.</li>
+                    </ul>
+                    {% endblock %}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        // Configuração global do jQuery para anexar CSRF e Accept JSON em chamadas de API
+        (function($) {
+            if (!$ || !$.ajaxPrefilter) return;
+            $.ajaxPrefilter(function(options, originalOptions, jqXHR) {
+                try {
+                    const method = String(options.type || options.method || 'GET').toUpperCase();
+                    const url = options.url || '';
+                    const isApi = typeof url === 'string' && (url.startsWith('/api/') || url.indexOf('/api/') !== -1);
+
+                    // Forçar Accept JSON em chamadas de API para respostas consistentes
+                    if (isApi) {
+                        jqXHR.setRequestHeader('Accept', 'application/json');
+                    }
+
+                    // Anexar token CSRF em métodos que alteram estado
+                    if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(method) && window.CSRF_TOKEN) {
+                        jqXHR.setRequestHeader('X-CSRF-Token', window.CSRF_TOKEN);
+                    }
+                } catch (_) { /* no-op */ }
+            });
+        })(window.jQuery);
+    </script>
+    
+    <script>
+        // Toggle do menu lateral
+        document.addEventListener('DOMContentLoaded', function() {
+            const menuToggle = document.getElementById('menuToggle');
+            const sidebar = document.getElementById('sidebar');
+            const mainContent = document.getElementById('mainContent');
+            const mobileOverlay = document.getElementById('mobileOverlay');
+            const LS_KEY = 'sidebar_collapsed';
+
+            function applyDesktopState(collapsed) {
+                if (collapsed) {
+                    sidebar.classList.add('collapsed');
+                    mainContent.classList.add('collapsed');
+                    menuToggle.querySelector('i').className = 'fas fa-angle-right';
+                } else {
+                    sidebar.classList.remove('collapsed');
+                    mainContent.classList.remove('collapsed');
+                    menuToggle.querySelector('i').className = 'fas fa-bars';
+                }
+            }
+
+            // Inicializar menu em desktop usando estado salvo (persistência)
+            function initializeMenu() {
+                if (window.innerWidth > 768) {
+                    const saved = localStorage.getItem(LS_KEY);
+                    const collapsed = saved === 'true';
+                    applyDesktopState(collapsed);
+                } else {
+                    // Mobile inicia sem mostrar sidebar; botão permanece com ícone de barras
+                    menuToggle.querySelector('i').className = 'fas fa-bars';
+                }
+            }
+            
+            function toggleMenu() {
+                if (window.innerWidth <= 768) {
+                    // Comportamento mobile - mostrar/esconder
+                    const isOpen = sidebar.classList.contains('show');
+                    
+                    if (isOpen) {
+                        sidebar.classList.remove('show');
+                        mobileOverlay.classList.remove('show');
+                        menuToggle.querySelector('i').className = 'fas fa-bars';
+                    } else {
+                        sidebar.classList.add('show');
+                        mobileOverlay.classList.add('show');
+                        menuToggle.querySelector('i').className = 'fas fa-times';
+                    }
+                } else {
+                    // Comportamento desktop - colapsar/expandir com persistência
+                    const isCollapsed = sidebar.classList.contains('collapsed');
+                    if (isCollapsed) {
+                        applyDesktopState(false);
+                        localStorage.setItem(LS_KEY, 'false');
+                    } else {
+                        applyDesktopState(true);
+                        localStorage.setItem(LS_KEY, 'true');
+                    }
+                }
+            }
+            
+            // Inicializar menu
+            initializeMenu();
+            
+            menuToggle.addEventListener('click', toggleMenu);
+            
+            // Controlar comportamento dos submenus baseado no estado do sidebar
+            sidebar.addEventListener('click', function(e) {
+                // Permitir funcionamento normal dos submenus tanto quando colapsado quanto expandido
+                // Não interferir com o comportamento padrão do Bootstrap collapse
+            });
+            
+            // Permitir que submenus permaneçam abertos quando colapsado
+            // Removido auto-fechamento para permitir acesso aos itens do submenu
+            
+            // Fechar menu ao clicar no overlay
+            mobileOverlay.addEventListener('click', function() {
+                sidebar.classList.remove('show');
+                mobileOverlay.classList.remove('show');
+                menuToggle.querySelector('i').className = 'fas fa-bars';
+            });
+            
+            // Ajustar menu em redimensionamento da tela
+            window.addEventListener('resize', function() {
+                if (window.innerWidth > 768) {
+                    // Desktop: remover classes mobile e aplicar estado salvo
+                    sidebar.classList.remove('show');
+                    mobileOverlay.classList.remove('show');
+                    const saved = localStorage.getItem(LS_KEY);
+                    const collapsed = saved === 'true';
+                    applyDesktopState(collapsed);
+                } else {
+                    // Mobile: remover classes desktop
+                    sidebar.classList.remove('collapsed');
+                    mainContent.classList.remove('collapsed');
+                    menuToggle.querySelector('i').className = 'fas fa-bars';
+                }
+            });
+        });
+        
+        // Função de logout
+        function logout() {
+            if (confirm('Tem certeza que deseja sair?')) {
+                window.location.href = '/auth/logout';
+            }
+        }
+        
+        // Aplicar cores dinâmicas aos badges
+        document.addEventListener('DOMContentLoaded', function() {
+            const dynamicBadges = document.querySelectorAll('.badge-dynamic[data-color]');
+            dynamicBadges.forEach(badge => {
+                const color = badge.getAttribute('data-color');
+                if (color) {
+                    badge.style.backgroundColor = color;
+                }
+            });
+        });
+        
+        // Atualizar data e hora atual
+        function updateDateTime() {
+            const now = new Date();
+            const fmt = new Intl.DateTimeFormat('pt-BR', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                timeZone: 'America/Sao_Paulo'
+            });
+
+            const parts = fmt.formatToParts(now);
+            let weekday = parts.find(p => p.type === 'weekday')?.value || '';
+            let month = parts.find(p => p.type === 'month')?.value || '';
+            if (weekday) weekday = weekday.charAt(0).toUpperCase() + weekday.slice(1);
+            if (month) month = month.charAt(0).toUpperCase() + month.slice(1);
+
+            const text = parts.map(p => {
+                if (p.type === 'weekday') return weekday;
+                if (p.type === 'month') return month;
+                return p.value;
+            }).join('');
+
+            const dateTimeElement = document.getElementById('current-datetime');
+            if (dateTimeElement) {
+                dateTimeElement.textContent = text;
+            }
+        }
+        
+        // Atualizar imediatamente e depois a cada segundo
+        document.addEventListener('DOMContentLoaded', function() {
+            updateDateTime();
+            setInterval(updateDateTime, 1000);
+        });
+
+        // Correções defensivas para UI de categorias em páginas de Produtos
+        document.addEventListener('DOMContentLoaded', function() {
+            try {
+                // Função utilitária: normalizar select para escolha única
+                function forceSingleSelect(selectEl) {
+                    if (!selectEl) return;
+                    try { selectEl.multiple = false; } catch(_) {}
+                    try { selectEl.size = 1; } catch(_) {}
+                    try { selectEl.removeAttribute('multiple'); } catch(_) {}
+                    try { selectEl.setAttribute('size', '1'); } catch(_) {}
+                    try {
+                        // Garantir apenas um option selecionado mesmo se algo recolocar 'multiple'
+                        if (!selectEl.__singleBinded) {
+                            selectEl.addEventListener('change', function(e) {
+                                var sel = e.currentTarget;
+                                if (sel && sel.tagName === 'SELECT') {
+                                    var found = false;
+                                    for (var i = 0; i < sel.options.length; i++) {
+                                        var opt = sel.options[i];
+                                        if (opt.selected) {
+                                            if (!found) { found = true; }
+                                            else { opt.selected = false; }
+                                        }
+                                    }
+                                }
+                            }, { passive: true });
+                            selectEl.__singleBinded = true;
+                        }
+                    } catch(_) {}
+                }
+
+                // Cadastro: forçar select único e ajustar rótulo/ajuda
+                var catCadastro = document.getElementById('categoriasCadastro');
+                if (catCadastro) {
+                    forceSingleSelect(catCadastro);
+                    var lblCadastro = document.querySelector('label[for="categoriasCadastro"]');
+                    if (lblCadastro) {
+                        var text = (lblCadastro.textContent || '').trim();
+                        if (/Categorias\s+de\s+Produtos/i.test(text)) {
+                            lblCadastro.textContent = 'Categoria do Produto *';
+                        }
+                    }
+                    var mbCadastro = catCadastro.closest ? catCadastro.closest('.mb-3') : null;
+                    var helpCadastro = mbCadastro ? mbCadastro.querySelector('.form-text') : null;
+                    if (helpCadastro && /Selecione\s+uma\s+ou\s+mais/i.test(helpCadastro.textContent || '')) {
+                        helpCadastro.style.display = 'none';
+                    }
+                }
+
+                // Edição: forçar select único e ajustar rótulo/ajuda
+                var catEdit = document.getElementById('editCategoriasEspecificas')
+                              || document.getElementById('editCategoria')
+                              || document.getElementById('editCategoriaId');
+                if (catEdit) {
+                    forceSingleSelect(catEdit);
+                    var lblEdit = document.querySelector('label[for="editCategoriasEspecificas"], label[for="editCategoria"], label[for="editCategoriaId"]');
+                    if (lblEdit) {
+                        var textE = (lblEdit.textContent || '').trim();
+                        if (/Categorias\s+de\s+Produtos/i.test(textE)) {
+                            lblEdit.textContent = 'Categoria do Produto';
+                        }
+                    }
+                    var mbEdit = catEdit.closest ? catEdit.closest('.mb-3') : null;
+                    var helpEdit = mbEdit ? mbEdit.querySelector('.form-text') : null;
+                    if (helpEdit && /Selecione\s+uma\s+ou\s+mais/i.test(helpEdit.textContent || '')) {
+                        helpEdit.style.display = 'none';
+                    }
+                }
+
+                // Detalhe: ocultar bloco de "Categorias Adicionais"
+                var adicionaisCont = document.getElementById('categoriasAdicionaisContainer');
+                if (adicionaisCont) {
+                    var parent = (adicionaisCont.closest ? adicionaisCont.closest('.col-12') : null) || adicionaisCont.parentElement;
+                    if (parent) { parent.style.display = 'none'; }
+                    var strongLabel = parent ? parent.querySelector('strong') : null;
+                    if (strongLabel && /Categorias\s+Adicionais/i.test(strongLabel.textContent || '')) {
+                        strongLabel.style.display = 'none';
+                    }
+                }
+            } catch (e) {
+                console.warn('Correção defensiva de categorias falhou:', e);
+            }
+
+            // Observador de mutações para reforçar regras em conteúdos dinâmicos
+            try {
+                var observer = new MutationObserver(function(mutations) {
+                    try {
+                        // Seletores que devem ser sempre single-select
+                        var ids = ['categoriasCadastro','editCategoriasEspecificas','editCategoria','editCategoriaId'];
+                        for (var i = 0; i < ids.length; i++) {
+                            var el = document.getElementById(ids[i]);
+                            if (el && el.tagName === 'SELECT') {
+                                forceSingleSelect(el);
+                                var mb = el.closest ? el.closest('.mb-3') : null;
+                                var help = mb ? mb.querySelector('.form-text') : null;
+                                if (help && /Selecione\s+uma\s+ou\s+mais/i.test(help.textContent || '')) {
+                                    help.style.display = 'none';
+                                }
+                            }
+                        }
+                        // Ocultar bloco de categorias adicionais se aparecer
+                        var adicionaisCont = document.getElementById('categoriasAdicionaisContainer');
+                        if (adicionaisCont) {
+                            var parent = (adicionaisCont.closest ? adicionaisCont.closest('.col-12') : null) || adicionaisCont.parentElement;
+                            if (parent) { parent.style.display = 'none'; }
+                            var strongLabel = parent ? parent.querySelector('strong') : null;
+                            if (strongLabel && /Categorias\s+Adicionais/i.test(strongLabel.textContent || '')) {
+                                strongLabel.style.display = 'none';
+                            }
+                        }
+                    } catch (err) {
+                        console.warn('Observer categorias falhou:', err);
+                    }
+                });
+                observer.observe(document.body, { childList: true, subtree: true });
+            } catch (obsErr) {
+                console.warn('Falha ao iniciar MutationObserver:', obsErr);
+            }
+        });
+    </script>
+    
+    <script>
+        // Notificações amigáveis e mapeamento de erros
+        window.showNotification = function(type, message, opts = {}) {
+            try {
+                const container = document.getElementById('notifications');
+                if (!container) return;
+                const ttl = Math.max(2000, Number(opts.timeout || 6000));
+                const category = (type || 'info').toLowerCase();
+                const el = document.createElement('div');
+                el.className = `alert alert-${category === 'error' ? 'danger' : category} notify-item`;
+                el.role = 'alert';
+                el.innerHTML = `
+                    <button type="button" class="btn-close" aria-label="Fechar"></button>
+                    ${message}
+                `;
+                const btn = el.querySelector('.btn-close');
+                btn.addEventListener('click', () => {
+                    try { container.removeChild(el); } catch(_) {}
+                });
+                container.appendChild(el);
+                setTimeout(() => { try { container.removeChild(el); } catch(_) {} }, ttl);
+            } catch (_) { /* ignore */ }
+        };
+
+        window.friendlyErrorMessage = function(err, context) {
+            try {
+                const status = Number(err && err.status || 0);
+                const msg = String((err && err.message) || '').trim();
+                const payload = err && err.payload || {};
+                const base = {
+                    0: 'Não foi possível comunicar com o servidor. Verifique sua conexão e tente novamente.',
+                    401: 'Sessão expirada ou não autenticado. Faça login para continuar.',
+                    403: (payload && String(payload.error || '').toLowerCase().includes('csrf'))
+                         ? 'Falha de segurança: token CSRF inválido ou ausente. Atualize a página e tente novamente.'
+                         : 'Você não tem permissão para executar esta ação. Se necessário, solicite ao administrador o acesso.',
+                    404: 'Recurso não encontrado. Verifique se a funcionalidade está habilitada e tente novamente.',
+                    409: 'Conflito de dados detectado. Recarregue as informações e tente novamente.',
+                    422: 'Dados inválidos. Corrija os campos informados e tente novamente.',
+                    503: 'Serviço temporariamente indisponível. Tente novamente mais tarde.',
+                    500: 'Ocorreu um erro ao processar sua solicitação. Tente novamente mais tarde.'
+                };
+                let text = base[status] || (msg || 'Ocorreu um erro. Tente novamente.');
+
+                // Explicações específicas para falhas de permissão em transferência/saída
+                if (status === 403 && (context === 'transferencia' || context === 'distribuicao')) {
+                    const m = (msg || '').toLowerCase();
+                    const isCentralMismatch = m.includes('central') || m.includes('centrais');
+                    const isScope = m.includes('escopo') || m.includes('perm') || m.includes('can_move_between');
+                    const centralHint = 'Produto, origem e destino devem pertencer à MESMA central do usuário.';
+                    const pairsHint = 'Pares permitidos para Resp. Sub‑Almox: Almoxarifado → Sub‑Almox (mesma central) e Sub‑Almox ↔ Setor (mesma central). Outros pares exigem nível superior (Gerente/Admin/Super).';
+                    const howToFix = 'Ajuste a seleção para um par permitido e garanta que o produto esteja na sua central. Em caso de necessidade entre centrais, solicite apoio de um administrador.';
+                    if (isCentralMismatch) {
+                        text = `${text} Motivo provável: ${centralHint} ${howToFix}`;
+                    } else if (isScope) {
+                        text = `${text} Motivo provável: ${pairsHint} ${howToFix}`;
+                    } else {
+                        text = `${text} Dica: ${centralHint} ${pairsHint} ${howToFix}`;
+                    }
+                }
+                if (context === 'sugestoes' && (status === 500 || status === 503)) {
+                    text += ' Caso o uso de IA esteja ativado, o serviço de IA pode estar indisponível; as sugestões padrão continuam disponíveis quando possível.';
+                }
+                return text;
+            } catch (_) {
+                return 'Ocorreu um erro. Tente novamente.';
+            }
+        };
+
+        // Ajuda Global
+        document.addEventListener('DOMContentLoaded', function() {
+            try {
+                const btn = document.getElementById('helpButton');
+                const modalEl = document.getElementById('helpModal');
+                if (btn && modalEl) {
+                    btn.addEventListener('click', function() {
+                        try {
+                            const modal = new bootstrap.Modal(modalEl);
+                            modal.show();
+                        } catch (_) {}
+                    });
+                }
+            } catch (_) {}
+        });
+    </script>
+    <script>
+        window.formatLocalDateTime = function(iso) {
+            try {
+                if (!iso) return '';
+                const d = new Date(String(iso));
+                if (isNaN(d.getTime())) return String(iso);
+                const dd = String(d.getDate()).padStart(2, '0');
+                const mm = String(d.getMonth() + 1).padStart(2, '0');
+                const yyyy = String(d.getFullYear());
+                const hh = String(d.getHours()).padStart(2, '0');
+                const min = String(d.getMinutes()).padStart(2, '0');
+                return dd + '/' + mm + '/' + yyyy + ' ' + hh + ':' + min;
+            } catch (_) {
+                return String(iso);
+            }
+        };
+        window.applyLocalDateFormatting = function(root) {
+            try {
+                const r = root || document;
+                const nodes = r.querySelectorAll('[data-datetime-iso]');
+                nodes.forEach(function(el) {
+                    const iso = el.getAttribute('data-datetime-iso');
+                    const txt = window.formatLocalDateTime(iso);
+                    if (txt) el.textContent = txt;
+                });
+            } catch (_) {}
+        };
+        document.addEventListener('DOMContentLoaded', function() {
+            try {
+                window.applyLocalDateFormatting(document);
+                const mo = new MutationObserver(function(muts) {
+                    try {
+                        muts.forEach(function(m) {
+                            const t = m.target;
+                            if (t && t.querySelectorAll) window.applyLocalDateFormatting(t);
+                        });
+                    } catch (_) {}
+                });
+                mo.observe(document.body, { childList: true, subtree: true });
+            } catch (_) {}
+        });
+    </script>
+    <script>
+        (function(){
+            const LS = window.localStorage;
+            function nowMs(){ return Date.now(); }
+            const userPrefix = "{{ (current_user.id or '') | string }}|{{ (current_user.nivel_acesso or '') | string }}|{{ (current_user.central_id or '') | string }}";
+            function scopedKey(k){ return 'usr:' + userPrefix + ':' + String(k); }
+            window.writeCacheJson = function(key, data, ttlMs){
+                try {
+                    const exp = nowMs() + Math.max(1000, Number(ttlMs||120000));
+                    const obj = { v: 1, exp, data };
+                    LS.setItem(scopedKey(key), JSON.stringify(obj));
+                } catch(_){}
+            };
+            window.readCacheJson = function(key){
+                try {
+                    const raw = LS.getItem(scopedKey(key));
+                    if (!raw) return null;
+                    const obj = JSON.parse(raw);
+                    if (!obj || typeof obj !== 'object') return null;
+                    if (Number(obj.exp||0) < nowMs()) return null;
+                    return obj.data;
+                } catch(_){ return null; }
+            };
+            window.cachedFetchJson = async function(url, opts){
+                const key = 'cache:' + String(url);
+                const ttl = (opts && opts.ttlMs) || 120000;
+                const cached = window.readCacheJson(key);
+                if (cached) return cached;
+                const data = await window.fetchJson(url, opts && opts.options || {});
+                window.writeCacheJson(key, data, ttl);
+                return data;
+            };
+            window.cachedFetchJsonDelta = async function(url, opts){
+                const key = 'cache:' + String(url);
+                const ttl = (opts && opts.ttlMs) || 300000;
+                const listProp = (opts && opts.listProp) || 'items';
+                const options = opts && opts.options || {};
+                const cached = window.readCacheJson(key);
+                const base = (cached && Array.isArray(cached[listProp])) ? cached[listProp].slice() : [];
+                let lastTs = '';
+                try {
+                    const parseTs = v => { try { return v ? Date.parse(v) : 0; } catch(_) { return 0; } };
+                    const tsField = (opts && opts.tsField) || null;
+                    lastTs = base.reduce((acc, it) => {
+                        const t = parseTs(tsField ? (it[tsField]||'') : (it.updated_at || it.created_at));
+                        return t > acc ? t : acc;
+                    }, 0);
+                    if (lastTs) lastTs = new Date(lastTs).toISOString();
+                } catch(_) {}
+                let finalUrl = String(url);
+                if (lastTs) finalUrl += (finalUrl.indexOf('?') !== -1 ? '&' : '?') + 'updated_since=' + encodeURIComponent(lastTs);
+                const data = await window.fetchJson(finalUrl, options);
+                let items = Array.isArray(data[listProp]) ? data[listProp] : [];
+                if (base.length && lastTs) {
+                    const mergedIds = new Set();
+                    const merged = [];
+                    const idProp = (opts && opts.idProp) || 'id';
+                    const altIdProp = (opts && opts.altIdProp) || 'display_id';
+                    items.concat(base).forEach(it => {
+                        const id = String(it[idProp] || it[altIdProp] || '');
+                        if (!id) return;
+                        if (mergedIds.has(id)) return;
+                        mergedIds.add(id);
+                        merged.push(it);
+                    });
+                    const out = Object.assign({}, data);
+                    out[listProp] = merged;
+                    window.writeCacheJson(key, out, ttl);
+                    return out;
+                } else {
+                    window.writeCacheJson(key, data, ttl);
+                    return data;
+                }
+            };
+        })();
+    </script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

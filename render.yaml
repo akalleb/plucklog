@@ -26,10 +26,12 @@ services:
       - key: NODE_VERSION
         value: 18.x
       - key: NEXT_PUBLIC_API_BASE_URL
+        value: ""
+      - key: ALMOX_FASTAPI_HOSTPORT
         fromService:
           type: web
           name: almox-fastapi
-          property: url
+          property: hostport
 
   # Serviço Web Legado (Flask - opcional durante migração)
   - type: web

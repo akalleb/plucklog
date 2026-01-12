@@ -9,3 +9,5 @@ services:
         value: almox_sms
       - key: SECRET_KEY
         generateValue: true
+      - key: ALMOX_FASTAPI_HOSTPORT
+        value: 127.0.0.1:8000

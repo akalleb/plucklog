@@ -37,4 +37,4 @@ COPY . .
 
 RUN cd frontend && npm run build
 
-CMD ["sh", "-c", "uvicorn fastapi_app.main:app --host 127.0.0.1 --port 10000 & cd frontend && npm run start -- -p ${PORT:-3000} -H 0.0.0.0"]
+CMD ["sh", "-c", "uvicorn fastapi_app.main:app --host 127.0.0.1 --port 8000 & cd frontend && npm run start -- -p ${PORT:-3000} -H 0.0.0.0"]

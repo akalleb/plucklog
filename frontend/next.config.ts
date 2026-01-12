@@ -17,7 +17,7 @@ const nextConfig: NextConfig = {
   },
   async rewrites() {
     const isProd = process.env.NODE_ENV === "production";
-    const backendHostport = process.env.ALMOX_FASTAPI_HOSTPORT || (isProd ? "127.0.0.1:10000" : "");
+    const backendHostport = process.env.ALMOX_FASTAPI_HOSTPORT || (isProd ? "127.0.0.1:8000" : "");
     if (!backendHostport) return [];
 
     return [

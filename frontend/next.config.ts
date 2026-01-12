@@ -1,6 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  turbopack: {
+    resolveAlias: {
+      "@": "./src",
+    },
+  },
   async rewrites() {
     const isProd = process.env.NODE_ENV === "production";
     const backendHostport = process.env.ALMOX_FASTAPI_HOSTPORT || (isProd ? "127.0.0.1:10000" : "");

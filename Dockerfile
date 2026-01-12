@@ -29,7 +29,7 @@ RUN pip install --upgrade pip && \
 
 # Instalar dependências do Frontend
 COPY frontend/package.json frontend/package-lock.json ./frontend/
-RUN cd frontend && npm ci
+RUN cd frontend && npm ci --include=dev
 
 # Copiar código da aplicação
 COPY . .

@@ -199,9 +199,13 @@ async def _infer_setor_links(item: "SetorItem") -> Dict[str, Any]:
 
 @app.on_event("startup")
 async def startup_db_client():
-    db.client = AsyncIOMotorClient(MONGO_URI)
+    db.client = AsyncIOMotorClient(MONGO_URI, serverSelectionTimeoutMS=5000)
     db.db = db.client[MONGO_DB]
-    print(f"Conectado ao MongoDB Async: {MONGO_DB}")
+    try:
+        await db.client.admin.command("ping")
+        print(f"Conectado ao MongoDB Async: {MONGO_DB}")
+    except Exception as exc:
+        print(f"Falha ao conectar no MongoDB Async: {exc}")
     await _ensure_super_admin()
 
 @app.on_event("shutdown")
@@ -520,20 +524,32 @@ async def update_lote(lote_id: str, item: LoteUpdate, user: Dict[str, Any] = Dep
 
 @app.get("/api/dashboard/stats")
 async def get_dashboard_stats():
-    total_produtos = await db.db.produtos.count_documents({})
-    
-    # Itens com estoque baixo (ex: < 10)
-    # Em produção, isso seria configurável por produto
-    baixo_estoque = await db.db.estoques.count_documents({"quantidade_disponivel": {"$lt": 10}})
-    
-    locais_count = await db.db.almoxarifados.count_documents({}) + await db.db.setores.count_documents({})
-    
-    return {
-        "total_produtos": total_produtos,
-        "baixo_estoque": baixo_estoque,
-        "locais_ativos": locais_count,
-        "status_sistema": "Online"
-    }
+    try:
+        if not db.db:
+            return {
+                "total_produtos": 0,
+                "baixo_estoque": 0,
+                "locais_ativos": 0,
+                "status_sistema": "Offline",
+            }
+
+        total_produtos = await db.db.produtos.count_documents({})
+        baixo_estoque = await db.db.estoques.count_documents({"quantidade_disponivel": {"$lt": 10}})
+        locais_count = await db.db.almoxarifados.count_documents({}) + await db.db.setores.count_documents({})
+
+        return {
+            "total_produtos": total_produtos,
+            "baixo_estoque": baixo_estoque,
+            "locais_ativos": locais_count,
+            "status_sistema": "Online",
+        }
+    except Exception:
+        return {
+            "total_produtos": 0,
+            "baixo_estoque": 0,
+            "locais_ativos": 0,
+            "status_sistema": "Offline",
+        }
 
 # --- Rota de Movimentações ---
 @app.get("/api/movimentacoes", response_model=MovimentacaoResponse)

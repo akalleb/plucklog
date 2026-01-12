@@ -1,46 +1,11 @@
 services:
-  # Serviço Web Principal (FastAPI - Backend)
   - type: web
-    name: almox-fastapi
-    env: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn fastapi_app.main:app --host 0.0.0.0 --port $PORT
+    name: pluckhub
+    env: docker
     envVars:
-      - key: PYTHON_VERSION
-        value: 3.11.0
       - key: MONGO_URI
         sync: false
       - key: MONGO_DB
-        value: almox_db
+        value: almox_sms
       - key: SECRET_KEY
         generateValue: true
-
-  # Serviço Web Frontend (Next.js)
-  - type: web
-    name: almox-frontend
-    env: node
-    rootDir: frontend
-    buildCommand: npm install && npm run build
-    startCommand: npm start
-    envVars:
-      - key: NODE_VERSION
-        value: 18.x
-      - key: NEXT_PUBLIC_API_BASE_URL
-        value: ""
-      - key: ALMOX_FASTAPI_HOSTPORT
-        fromService:
-          type: web
-          name: almox-fastapi
-          property: hostport
-
-  # Serviço Web Legado (Flask - opcional durante migração)
-  - type: web
-    name: almox-flask-legacy
-    env: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn -w 4 -b 0.0.0.0:$PORT wsgi:app
-    envVars:
-      - key: PYTHON_VERSION
-        value: 3.11.0
-      - key: MONGO_URI
-        sync: false

@@ -4,7 +4,8 @@ FROM python:3.11-slim
 # Definir variáveis de ambiente
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    NEXT_TELEMETRY_DISABLED=1
+    NEXT_TELEMETRY_DISABLED=1 \
+    NPM_CONFIG_PRODUCTION=false
 
 # Diretório de trabalho
 WORKDIR /app

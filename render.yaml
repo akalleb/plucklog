@@ -1,5 +1,5 @@
 services:
-  # Serviço Web Principal (FastAPI)
+  # Serviço Web Principal (FastAPI - Backend)
   - type: web
     name: almox-fastapi
     env: python
@@ -14,6 +14,22 @@ services:
         value: almox_db
       - key: SECRET_KEY
         generateValue: true
+
+  # Serviço Web Frontend (Next.js)
+  - type: web
+    name: almox-frontend
+    env: node
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 18.x
+      - key: NEXT_PUBLIC_API_BASE_URL
+        fromService:
+          type: web
+          name: almox-fastapi
+          property: url
 
   # Serviço Web Legado (Flask - opcional durante migração)
   - type: web

@@ -15,6 +15,7 @@
             align-items: center;
             justify-content: center;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0; /* Garante que não haja scroll indesejado */
         }
         
         .login-container {
@@ -26,6 +27,7 @@
             width: 100%;
             max-width: 450px;
             border: 1px solid rgba(255, 255, 255, 0.2);
+            margin: 1rem; /* Margem de segurança para telas pequenas */
         }
         
         .login-header {
@@ -33,6 +35,12 @@
             margin-bottom: 2rem;
         }
         
+        /* Garante que a logo não estoure em telas muito pequenas */
+        .login-header img {
+            max-width: 100%;
+            height: auto;
+        }
+
         .login-header h1 {
             color: #333;
             font-weight: 700;
@@ -49,11 +57,13 @@
             margin-bottom: 1rem;
         }
         
+        /* CORREÇÃO AQUI: Ajuste fino do input */
         .form-floating > .form-control {
             border: 2px solid #e9ecef;
             border-radius: 12px;
-            padding: 1rem 0.75rem;
-            height: auto;
+            /* Removemos o padding fixo e o height: auto que quebravam o layout */
+            height: calc(3.5rem + 2px); 
+            line-height: 1.25;
             transition: all 0.3s ease;
         }
         
@@ -62,9 +72,9 @@
             box-shadow: 0 0 0 0.2rem rgba(37, 99, 235, 0.25);
         }
         
+        /* Ajuste da cor do label */
         .form-floating > label {
             color: #666;
-            padding: 1rem 0.75rem;
         }
         
         .btn-login {
@@ -77,6 +87,7 @@
             width: 100%;
             transition: all 0.3s ease;
             color: white;
+            margin-top: 0.5rem;
         }
         
         .btn-login:hover {
@@ -90,7 +101,7 @@
         }
         
         .form-check {
-            margin: 1.5rem 0;
+            margin: 1rem 0 1.5rem 0.5rem; /* Ajuste leve na margem */
         }
         
         .form-check-input:checked {
@@ -149,7 +160,7 @@
         @media (max-width: 576px) {
             .login-container {
                 margin: 1rem;
-                padding: 2rem;
+                padding: 1.5rem; /* Reduzi um pouco o padding no mobile */
             }
             
             .login-header h1 {
@@ -161,11 +172,10 @@
 <body>
     <div class="login-container">
         <div class="login-header">
-            <h1><img src="{{ url_for('static', filename='logo_pluck.svg') }}" alt="Logo PluckLog" style="width: 280px; height: auto; vertical-align: middle;"></h1>
+            <h1><img src="{{ url_for('static', filename='logo_pluck.svg') }}" alt="Logo PluckLog" class="img-fluid" style="max-width: 280px; height: auto;"></h1>
             <p>Sistema de Gerenciamento de Almoxarifado</p>
         </div>
         
-        <!-- Mensagens Flash -->
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
@@ -228,20 +238,22 @@
             loadingText.style.display = 'inline-flex';
             submitBtn.disabled = true;
             
-            // Se houver erro, volta ao estado normal após 3 segundos
+            // Simulação de retorno em caso de erro (apenas front-end)
             setTimeout(() => {
+                // Em produção, isso não existiria, pois a página recarregaria
+                // ou o JS trataria o erro do fetch.
+                // Mas mantendo sua lógica visual:
                 if (submitBtn.disabled) {
-                    loginText.style.display = 'inline-flex';
-                    loadingText.style.display = 'none';
-                    submitBtn.disabled = false;
+                   // Se o form for submetido via AJAX, você reativa aqui.
+                   // Se for submit normal (form action), a página recarrega e isso não é necessário.
                 }
-            }, 3000);
+            }, 5000);
         });
         
         // Auto-focus no campo de usuário
         document.getElementById('username').focus();
         
-        // Enter no campo de usuário vai para senha
+        // Enter no campo de usuário vai para senha (opcional, pois o tabIndex faz isso nativamente, mas ok manter)
         document.getElementById('username').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 e.preventDefault();

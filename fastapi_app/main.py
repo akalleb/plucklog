@@ -606,7 +606,7 @@ async def update_lote(lote_id: str, item: LoteUpdate, user: Dict[str, Any] = Dep
 @app.get("/api/dashboard/stats")
 async def get_dashboard_stats():
     try:
-        if not db.db:
+        if db.db is None:
             return {
                 "total_produtos": 0,
                 "baixo_estoque": 0,
@@ -739,7 +739,7 @@ async def get_estoque_hierarquia(
     """
     skip = (page - 1) * per_page
 
-    if not db.db:
+    if db.db is None:
         return {"items": [], "pagination": {"total": 0, "page": page, "pages": 1}}
     
     # Construção de Filtros
@@ -790,14 +790,17 @@ async def get_estoque_hierarquia(
 
     # Bulk Resolve (Carregamento em lote Async)
     prod_ids = set()
-    loc_ids = {"centrais": set(), "almoxarifados": set(), "setores": set()}
+    loc_ids = {"centrais": set(), "almoxarifados": set(), "setores": set(), "sub_almoxarifados": set()}
 
     for e in estoques:
         if e.get("produto_id"): prod_ids.add(e.get("produto_id"))
         # Identificar coleção do local
         if e.get("setor_id"): loc_ids["setores"].add(e.get("setor_id"))
+        elif e.get("sub_almoxarifado_id"): loc_ids["sub_almoxarifados"].add(e.get("sub_almoxarifado_id"))
         elif e.get("almoxarifado_id"): loc_ids["almoxarifados"].add(e.get("almoxarifado_id"))
         elif e.get("central_id"): loc_ids["centrais"].add(e.get("central_id"))
+        elif (e.get("local_tipo") or "").strip().lower() == "sub_almoxarifado" and e.get("local_id"):
+            loc_ids["sub_almoxarifados"].add(e.get("local_id"))
 
     # Executar buscas auxiliares em paralelo (Gather)
     # Nota: Motor não tem gather nativo na query, mas podemos disparar as tasks
@@ -823,7 +826,8 @@ async def get_estoque_hierarquia(
     loc_maps = {
         "centrais": await fetch_map("centrais", list(loc_ids["centrais"])),
         "almoxarifados": await fetch_map("almoxarifados", list(loc_ids["almoxarifados"])),
-        "setores": await fetch_map("setores", list(loc_ids["setores"]))
+        "setores": await fetch_map("setores", list(loc_ids["setores"])),
+        "sub_almoxarifados": await fetch_map("sub_almoxarifados", list(loc_ids["sub_almoxarifados"]))
     }
 
     # Montar resposta
@@ -840,14 +844,39 @@ async def get_estoque_hierarquia(
             l = loc_maps["setores"].get(str(e.get("setor_id")), {})
             l_nome = l.get("nome", "Setor")
             l_tipo = "setor"
+        elif e.get("sub_almoxarifado_id") or (l_tipo or "").strip().lower() == "sub_almoxarifado":
+            sid = e.get("sub_almoxarifado_id") or e.get("local_id")
+            l = loc_maps["sub_almoxarifados"].get(str(sid), {}) if sid is not None else {}
+            l_nome = l.get("nome", "Sub-Almoxarifado")
+            l_tipo = "sub_almoxarifado"
         elif e.get("almoxarifado_id"):
             l = loc_maps["almoxarifados"].get(str(e.get("almoxarifado_id")), {})
             l_nome = l.get("nome", "Almoxarifado")
             l_tipo = "almoxarifado"
+        elif e.get("central_id"):
+            l = loc_maps["centrais"].get(str(e.get("central_id")), {})
+            l_nome = l.get("nome", "Central")
+            l_tipo = "central"
         
-        qtd = float(e.get("quantidade_atual", 0))
-        disp = float(e.get("quantidade_disponivel", qtd))
-        inicial = float(e.get("quantidade_inicial", qtd))
+        qtd_raw = e.get("quantidade_atual")
+        if qtd_raw is None:
+            qtd_raw = e.get("quantidade")
+        try:
+            qtd = float(qtd_raw or 0)
+        except (TypeError, ValueError):
+            qtd = 0.0
+
+        disp_raw = e.get("quantidade_disponivel")
+        try:
+            disp = float(qtd if disp_raw is None else (disp_raw or 0))
+        except (TypeError, ValueError):
+            disp = qtd
+
+        inicial_raw = e.get("quantidade_inicial")
+        try:
+            inicial = float(qtd if inicial_raw is None else (inicial_raw or 0))
+        except (TypeError, ValueError):
+            inicial = qtd
         
         status_calc = "Normal"
         if disp <= 0: status_calc = "Zerado"

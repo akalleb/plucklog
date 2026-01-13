@@ -3,6 +3,7 @@
 import { BarChart, TrendingUp, DollarSign, Calendar, ArrowUpRight, ArrowDownRight, Package } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { apiUrl } from '@/lib/api';
 
 export default function RelatoriosPage() {
   const [stats, setStats] = useState({
@@ -17,19 +18,19 @@ export default function RelatoriosPage() {
 
   useEffect(() => {
     // Carregar Stats
-    fetch('http://localhost:8000/api/dashboard/stats')
+    fetch(apiUrl('/api/dashboard/stats'))
       .then(res => res.json())
       .then(data => setStats(data))
       .catch(console.error);
 
     // Carregar Gráfico Consumo
-    fetch('http://localhost:8000/api/dashboard/charts/consumo')
+    fetch(apiUrl('/api/dashboard/charts/consumo'))
       .then(res => res.json())
       .then(data => setConsumoData(data))
       .catch(console.error);
 
     // Carregar Gráfico Movimentações
-    fetch('http://localhost:8000/api/dashboard/charts/movimentacoes')
+    fetch(apiUrl('/api/dashboard/charts/movimentacoes'))
       .then(res => res.json())
       .then(data => setMovData(data))
       .catch(console.error);

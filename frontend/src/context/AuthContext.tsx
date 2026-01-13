@@ -9,6 +9,7 @@ interface User {
   email: string;
   role: string; // super_admin, admin_central, gerente_almox, resp_sub_almox, operador_setor
   scope_id?: string;
+  central_id?: string;
 }
 
 interface AuthContextType {

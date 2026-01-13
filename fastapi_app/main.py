@@ -738,6 +738,9 @@ async def get_estoque_hierarquia(
     Muito mais rápida pois não bloqueia o servidor enquanto busca no banco.
     """
     skip = (page - 1) * per_page
+
+    if not db.db:
+        return {"items": [], "pagination": {"total": 0, "page": page, "pages": 1}}
     
     # Construção de Filtros
     query = {}
@@ -762,7 +765,7 @@ async def get_estoque_hierarquia(
         if p_ids:
             query["produto_id"] = {"$in": p_ids}
         else:
-            return {"items": [], "pagination": {"total": 0, "page": page}}
+            return {"items": [], "pagination": {"total": 0, "page": page, "pages": 1}}
 
     # Filtros de Local
     if tipo:
@@ -1516,7 +1519,10 @@ class SubAlmoxarifadoItem(BaseModel):
 # --- Rotas de Cadastros Básicos ---
 
 @app.get("/api/sub_almoxarifados", response_model=List[SubAlmoxarifadoItem])
-async def get_sub_almoxarifados(user: Dict[str, Any] = Depends(get_current_user)):
+async def get_sub_almoxarifados(
+    include_all: bool = Query(False),
+    user: Dict[str, Any] = Depends(get_current_user),
+):
     subs = await db.db.sub_almoxarifados.find().to_list(length=100)
     role = user.get("role")
     scope_id = user.get("scope_id")
@@ -1524,21 +1530,25 @@ async def get_sub_almoxarifados(user: Dict[str, Any] = Depends(get_current_user)
     allowed_almox_ids: Optional[set[str]] = None
     allowed_sub_ids: Optional[set[str]] = None
 
-    if role == "admin_central" and scope_id:
-        alms = await db.db.almoxarifados.find().to_list(length=200)
-        allowed_almox_ids = {_public_id(a) for a in alms if _norm_id(a.get("central_id")) == scope_id}
-    elif role == "gerente_almox" and scope_id:
-        allowed_almox_ids = {scope_id}
-    elif role == "resp_sub_almox" and scope_id:
-        allowed_sub_ids = {scope_id}
-    elif role == "operador_setor" and scope_id:
-        setor = await _find_one_by_id("setores", scope_id)
-        if setor:
-            chain = await _resolve_parent_chain_from_setor(setor)
-            if chain.get("sub_almoxarifado_id"):
-                allowed_sub_ids = {chain["sub_almoxarifado_id"]}
-            elif chain.get("almoxarifado_id"):
-                allowed_almox_ids = {chain["almoxarifado_id"]}
+    if include_all:
+        if role not in ("super_admin", "admin_central", "gerente_almox", "resp_sub_almox"):
+            raise HTTPException(status_code=403, detail="Acesso negado")
+    else:
+        if role == "admin_central" and scope_id:
+            alms = await db.db.almoxarifados.find().to_list(length=200)
+            allowed_almox_ids = {_public_id(a) for a in alms if _norm_id(a.get("central_id")) == scope_id}
+        elif role == "gerente_almox" and scope_id:
+            allowed_almox_ids = {scope_id}
+        elif role == "resp_sub_almox" and scope_id:
+            allowed_sub_ids = {scope_id}
+        elif role == "operador_setor" and scope_id:
+            setor = await _find_one_by_id("setores", scope_id)
+            if setor:
+                chain = await _resolve_parent_chain_from_setor(setor)
+                if chain.get("sub_almoxarifado_id"):
+                    allowed_sub_ids = {chain["sub_almoxarifado_id"]}
+                elif chain.get("almoxarifado_id"):
+                    allowed_almox_ids = {chain["almoxarifado_id"]}
     results = []
     for s in subs:
         sub_id = _public_id(s) or str(s.get("_id"))
@@ -1688,7 +1698,10 @@ async def delete_categoria(cat_id: str):
     return {"status": "success", "message": "Categoria removida"}
 
 @app.get("/api/setores", response_model=List[SetorItem])
-async def get_setores(user: Dict[str, Any] = Depends(get_current_user)):
+async def get_setores(
+    include_all: bool = Query(False),
+    user: Dict[str, Any] = Depends(get_current_user),
+):
     sets = await db.db.setores.find().to_list(length=100)
     role = user.get("role")
     scope_id = user.get("scope_id")
@@ -1697,19 +1710,23 @@ async def get_setores(user: Dict[str, Any] = Depends(get_current_user)):
     allowed_almox_ids: Optional[set[str]] = None
     allowed_sub_ids: Optional[set[str]] = None
 
-    if role == "admin_central" and scope_id:
-        alms = await db.db.almoxarifados.find().to_list(length=200)
-        allowed_almox_ids = {_public_id(a) for a in alms if _norm_id(a.get("central_id")) == scope_id}
-        subs = await db.db.sub_almoxarifados.find().to_list(length=200)
-        allowed_sub_ids = {_public_id(s) for s in subs if _norm_id(s.get("almoxarifado_id")) in allowed_almox_ids}
-    elif role == "gerente_almox" and scope_id:
-        allowed_almox_ids = {scope_id}
-        subs = await db.db.sub_almoxarifados.find().to_list(length=200)
-        allowed_sub_ids = {_public_id(s) for s in subs if _norm_id(s.get("almoxarifado_id")) == scope_id}
-    elif role == "resp_sub_almox" and scope_id:
-        allowed_sub_ids = {scope_id}
-    elif role == "operador_setor" and scope_id:
-        allowed_setor_ids = {scope_id}
+    if include_all:
+        if role not in ("super_admin", "admin_central", "gerente_almox", "resp_sub_almox"):
+            raise HTTPException(status_code=403, detail="Acesso negado")
+    else:
+        if role == "admin_central" and scope_id:
+            alms = await db.db.almoxarifados.find().to_list(length=200)
+            allowed_almox_ids = {_public_id(a) for a in alms if _norm_id(a.get("central_id")) == scope_id}
+            subs = await db.db.sub_almoxarifados.find().to_list(length=200)
+            allowed_sub_ids = {_public_id(s) for s in subs if _norm_id(s.get("almoxarifado_id")) in allowed_almox_ids}
+        elif role == "gerente_almox" and scope_id:
+            allowed_almox_ids = {scope_id}
+            subs = await db.db.sub_almoxarifados.find().to_list(length=200)
+            allowed_sub_ids = {_public_id(s) for s in subs if _norm_id(s.get("almoxarifado_id")) == scope_id}
+        elif role == "resp_sub_almox" and scope_id:
+            allowed_sub_ids = {scope_id}
+        elif role == "operador_setor" and scope_id:
+            allowed_setor_ids = {scope_id}
     results = []
     for s in sets:
         setor_id = _public_id(s) or str(s.get("_id"))
@@ -1862,32 +1879,39 @@ async def delete_setor(setor_id: str, user: Dict[str, Any] = Depends(_require_ro
     return {"status": "success", "message": "Setor removido"}
 
 @app.get("/api/centrais", response_model=List[CentralItem])
-async def get_centrais(user: Dict[str, Any] = Depends(get_current_user)):
+async def get_centrais(
+    include_all: bool = Query(False),
+    user: Dict[str, Any] = Depends(get_current_user),
+):
     centrais = await db.db.centrais.find().to_list(length=100)
     role = user.get("role")
     scope_id = user.get("scope_id")
 
     allowed_central_ids: Optional[set[str]] = None
-    if role == "admin_central" and scope_id:
-        allowed_central_ids = {scope_id}
-    elif role == "gerente_almox" and scope_id:
-        almox = await _find_one_by_id("almoxarifados", scope_id)
-        central_id = _norm_id(almox.get("central_id")) if almox else None
-        allowed_central_ids = {central_id} if central_id else set()
-    elif role == "resp_sub_almox" and scope_id:
-        sub = await _find_one_by_id("sub_almoxarifados", scope_id)
-        almox_id = _norm_id(sub.get("almoxarifado_id")) if sub else None
-        almox = await _find_one_by_id("almoxarifados", almox_id) if almox_id else None
-        central_id = _norm_id(almox.get("central_id")) if almox else None
-        allowed_central_ids = {central_id} if central_id else set()
-    elif role == "operador_setor" and scope_id:
-        setor = await _find_one_by_id("setores", scope_id)
-        if setor:
-            chain = await _resolve_parent_chain_from_setor(setor)
-            central_id = chain.get("central_id")
+    if include_all:
+        if role not in ("super_admin", "admin_central", "gerente_almox", "resp_sub_almox"):
+            raise HTTPException(status_code=403, detail="Acesso negado")
+    else:
+        if role == "admin_central" and scope_id:
+            allowed_central_ids = {scope_id}
+        elif role == "gerente_almox" and scope_id:
+            almox = await _find_one_by_id("almoxarifados", scope_id)
+            central_id = _norm_id(almox.get("central_id")) if almox else None
             allowed_central_ids = {central_id} if central_id else set()
-        else:
-            allowed_central_ids = set()
+        elif role == "resp_sub_almox" and scope_id:
+            sub = await _find_one_by_id("sub_almoxarifados", scope_id)
+            almox_id = _norm_id(sub.get("almoxarifado_id")) if sub else None
+            almox = await _find_one_by_id("almoxarifados", almox_id) if almox_id else None
+            central_id = _norm_id(almox.get("central_id")) if almox else None
+            allowed_central_ids = {central_id} if central_id else set()
+        elif role == "operador_setor" and scope_id:
+            setor = await _find_one_by_id("setores", scope_id)
+            if setor:
+                chain = await _resolve_parent_chain_from_setor(setor)
+                central_id = chain.get("central_id")
+                allowed_central_ids = {central_id} if central_id else set()
+            else:
+                allowed_central_ids = set()
     results = []
     for c in centrais:
         cid = _public_id(c) or str(c.get("_id"))
@@ -1939,7 +1963,10 @@ async def delete_central(central_id: str, user: Dict[str, Any] = Depends(_requir
     return {"status": "success", "message": "Central removida"}
 
 @app.get("/api/almoxarifados", response_model=List[AlmoxarifadoItem])
-async def get_almoxarifados(user: Dict[str, Any] = Depends(get_current_user)):
+async def get_almoxarifados(
+    include_all: bool = Query(False),
+    user: Dict[str, Any] = Depends(get_current_user),
+):
     alms = await db.db.almoxarifados.find().to_list(length=100)
     role = user.get("role")
     scope_id = user.get("scope_id")
@@ -1947,21 +1974,25 @@ async def get_almoxarifados(user: Dict[str, Any] = Depends(get_current_user)):
     allowed_almox_ids: Optional[set[str]] = None
     allowed_central_ids: Optional[set[str]] = None
 
-    if role == "admin_central" and scope_id:
-        allowed_central_ids = {scope_id}
-    elif role == "gerente_almox" and scope_id:
-        allowed_almox_ids = {scope_id}
-    elif role == "resp_sub_almox" and scope_id:
-        sub = await _find_one_by_id("sub_almoxarifados", scope_id)
-        almox_id = _norm_id(sub.get("almoxarifado_id")) if sub else None
-        allowed_almox_ids = {almox_id} if almox_id else set()
-    elif role == "operador_setor" and scope_id:
-        setor = await _find_one_by_id("setores", scope_id)
-        if setor:
-            chain = await _resolve_parent_chain_from_setor(setor)
-            allowed_almox_ids = {chain["almoxarifado_id"]} if chain.get("almoxarifado_id") else set()
-        else:
-            allowed_almox_ids = set()
+    if include_all:
+        if role not in ("super_admin", "admin_central", "gerente_almox", "resp_sub_almox"):
+            raise HTTPException(status_code=403, detail="Acesso negado")
+    else:
+        if role == "admin_central" and scope_id:
+            allowed_central_ids = {scope_id}
+        elif role == "gerente_almox" and scope_id:
+            allowed_almox_ids = {scope_id}
+        elif role == "resp_sub_almox" and scope_id:
+            sub = await _find_one_by_id("sub_almoxarifados", scope_id)
+            almox_id = _norm_id(sub.get("almoxarifado_id")) if sub else None
+            allowed_almox_ids = {almox_id} if almox_id else set()
+        elif role == "operador_setor" and scope_id:
+            setor = await _find_one_by_id("setores", scope_id)
+            if setor:
+                chain = await _resolve_parent_chain_from_setor(setor)
+                allowed_almox_ids = {chain["almoxarifado_id"]} if chain.get("almoxarifado_id") else set()
+            else:
+                allowed_almox_ids = set()
     results = []
     for a in alms:
         almox_id = _public_id(a) or str(a.get("_id"))
@@ -2383,6 +2414,13 @@ async def post_distribuicao(req: MovimentacaoRequest, user: Dict[str, Any] = Dep
     if req.quantidade <= 0:
         raise HTTPException(status_code=400, detail="Quantidade deve ser maior que zero")
 
+    role = user.get("role")
+    scope_id = user.get("scope_id")
+    if role not in ("super_admin", "admin_central", "gerente_almox", "resp_sub_almox"):
+        raise HTTPException(status_code=403, detail="Acesso negado")
+    if role != "super_admin" and not scope_id:
+        raise HTTPException(status_code=400, detail="Usuário sem escopo associado")
+
     # 1. Validar Produto e Resolver ID
     prod_query = {"$or": [{"_id": req.produto_id}, {"id": req.produto_id}, {"codigo": req.produto_id}]}
     if ObjectId.is_valid(req.produto_id):
@@ -2421,6 +2459,28 @@ async def post_distribuicao(req: MovimentacaoRequest, user: Dict[str, Any] = Dep
         origem_almox_id = _public_id(almox) or origem_almox_id if almox else origem_almox_id
     else:
         raise HTTPException(status_code=400, detail="Tipo de origem inválido")
+
+    if role == "resp_sub_almox":
+        if origem_tipo != "sub_almoxarifado":
+            raise HTTPException(status_code=403, detail="Acesso negado")
+        if _norm_id(oid_out) != _norm_id(scope_id):
+            raise HTTPException(status_code=403, detail="Acesso negado")
+    elif role == "gerente_almox":
+        if origem_tipo == "almoxarifado":
+            if _norm_id(oid_out) != _norm_id(scope_id):
+                raise HTTPException(status_code=403, detail="Acesso negado")
+        else:
+            if _norm_id(origem_almox_id) != _norm_id(scope_id):
+                raise HTTPException(status_code=403, detail="Acesso negado")
+    elif role == "admin_central":
+        central_id = _norm_id(scope_id)
+        if origem_tipo == "almoxarifado":
+            if _norm_id(origem.get("central_id")) != central_id:
+                raise HTTPException(status_code=403, detail="Acesso negado")
+        else:
+            almox_doc = await db.db.almoxarifados.find_one(_build_id_query(origem_almox_id or ""))
+            if not almox_doc or _norm_id(almox_doc.get("central_id")) != central_id:
+                raise HTTPException(status_code=403, detail="Acesso negado")
 
     # 3. Validar Destino (Setor ou Almoxarifado)
     destino_tipo = req.destino_tipo.strip()

@@ -29,9 +29,11 @@ export default function SaidaPage() {
     if (authLoading) return;
     if (!user) return;
     const headers = { 'X-User-Id': user.id };
+    const includeAll = ['super_admin', 'admin_central', 'gerente_almox', 'resp_sub_almox'].includes(user.role);
+    const qs = includeAll ? '?include_all=1' : '';
     Promise.all([
-      fetch(apiUrl('/api/centrais'), { headers }).then(r => (r.ok ? r.json() : [])),
-      fetch(apiUrl('/api/setores'), { headers }).then(r => (r.ok ? r.json() : [])),
+      fetch(apiUrl(`/api/centrais${qs}`), { headers }).then(r => (r.ok ? r.json() : [])),
+      fetch(apiUrl(`/api/setores${qs}`), { headers }).then(r => (r.ok ? r.json() : [])),
     ])
       .then(([c, sets]) => {
         setCentrais(c);
@@ -42,11 +44,40 @@ export default function SaidaPage() {
 
   const centralNameById = useMemo(() => new Map(centrais.map(c => [c.id, c.nome])), [centrais]);
 
-  const setoresFiltrados = useMemo(() => {
+  const grupos = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const items = !q ? setores : setores.filter(s => (s.nome || '').toLowerCase().includes(q));
-    return [...items].sort((a, b) => a.nome.localeCompare(b.nome));
-  }, [setores, query]);
+    const view = !q
+      ? setores
+      : setores.filter(s => {
+          const nome = (s.nome || '').toLowerCase();
+          const cid = s.central_id ? String(s.central_id) : '';
+          const cNome = (centralNameById.get(cid) || cid || '-').toLowerCase();
+          return nome.includes(q) || cNome.includes(q);
+        });
+
+    const byCentral = new Map<string, Setor[]>();
+    for (const s of view) {
+      const cid = s.central_id ? String(s.central_id) : '';
+      const key = cid || '-';
+      const arr = byCentral.get(key) || [];
+      arr.push(s);
+      byCentral.set(key, arr);
+    }
+
+    const out = [...byCentral.entries()].map(([centralId, list]) => {
+      const centralNome = centralId === '-' ? '-' : (centralNameById.get(centralId) || centralId);
+      const setoresOrdenados = [...list].sort((a, b) => a.nome.localeCompare(b.nome));
+      return { centralId, centralNome, setores: setoresOrdenados };
+    });
+
+    out.sort((a, b) => {
+      if (a.centralId === '-' && b.centralId !== '-') return 1;
+      if (b.centralId === '-' && a.centralId !== '-') return -1;
+      return a.centralNome.localeCompare(b.centralNome);
+    });
+
+    return out;
+  }, [centralNameById, query, setores]);
 
   if (!user) return null;
   if (loading) {
@@ -79,21 +110,33 @@ export default function SaidaPage() {
         </div>
       </div>
 
-      {setoresFiltrados.length === 0 ? (
+      {grupos.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-500">Nenhum setor encontrado.</div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {setoresFiltrados.map(s => (
-            <Link
-              key={s.id}
-              href={`/saida/${s.id}`}
-              className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 hover:bg-gray-50 transition-colors"
-            >
-              <div className="font-semibold text-gray-900">{s.nome}</div>
-              <div className="text-xs text-gray-500 mt-1">
-                {s.central_id ? `Central: ${centralNameById.get(String(s.central_id)) || s.central_id}` : 'Central: -'}
+        <div className="space-y-6">
+          {grupos.map(g => (
+            <div key={g.centralId}>
+              <div className="mb-3 flex items-end justify-between gap-3">
+                <div>
+                  <div className="text-xs text-gray-500">Central</div>
+                  <div className="text-lg font-semibold text-gray-900">{g.centralNome}</div>
+                </div>
+                <div className="text-xs text-gray-500">{g.setores.length} setores</div>
               </div>
-            </Link>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {g.setores.map(s => (
+                  <Link
+                    key={s.id}
+                    href={`/saida/${s.id}`}
+                    className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="font-semibold text-gray-900">{s.nome}</div>
+                    <div className="text-xs text-gray-500 mt-1">{`Central: ${g.centralNome}`}</div>
+                  </Link>
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       )}

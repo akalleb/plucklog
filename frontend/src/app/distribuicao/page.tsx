@@ -24,6 +24,12 @@ interface SubAlmoxarifado {
   almoxarifado_id?: string;
 }
 
+interface Setor {
+  id: string;
+  nome: string;
+  central_id?: string | null;
+}
+
 interface ProdutoResumo {
   id: string;
   nome: string;
@@ -65,6 +71,7 @@ export default function DistribuicaoPage() {
   const [centrais, setCentrais] = useState<Central[]>([]);
   const [almoxarifados, setAlmoxarifados] = useState<SimpleLocation[]>([]);
   const [subAlmoxarifados, setSubAlmoxarifados] = useState<SubAlmoxarifado[]>([]);
+  const [setores, setSetores] = useState<Setor[]>([]);
   
   const [formData, setFormData] = useState({
     quantidade: '',
@@ -79,14 +86,18 @@ export default function DistribuicaoPage() {
     if (authLoading) return;
     if (!user) return;
     const headers = { 'X-User-Id': user.id };
+    const includeAll = ['super_admin', 'admin_central', 'gerente_almox', 'resp_sub_almox'].includes(user.role);
+    const qs = includeAll ? '?include_all=1' : '';
     Promise.all([
-      fetch(apiUrl('/api/centrais'), { headers }).then(r => r.ok ? r.json() : []),
-      fetch(apiUrl('/api/almoxarifados'), { headers }).then(r => r.ok ? r.json() : []),
-      fetch(apiUrl('/api/sub_almoxarifados'), { headers }).then(r => r.ok ? r.json() : []),
-    ]).then(([c, a, s]) => {
+      fetch(apiUrl(`/api/centrais${qs}`), { headers }).then(r => (r.ok ? r.json() : [])),
+      fetch(apiUrl(`/api/almoxarifados${qs}`), { headers }).then(r => (r.ok ? r.json() : [])),
+      fetch(apiUrl(`/api/sub_almoxarifados${qs}`), { headers }).then(r => (r.ok ? r.json() : [])),
+      fetch(apiUrl(`/api/setores${qs}`), { headers }).then(r => (r.ok ? r.json() : [])),
+    ]).then(([c, a, s, sets]) => {
       setCentrais(c);
       setAlmoxarifados(a);
       setSubAlmoxarifados(s);
+      setSetores(sets);
     }).catch(() => setError('Erro ao carregar hierarquia'));
   }, [authLoading, user]);
 
@@ -142,13 +153,57 @@ export default function DistribuicaoPage() {
       .sort((a, b) => (b.quantidade_disponivel || 0) - (a.quantidade_disponivel || 0));
   }, [produtoDetalhes]);
 
+  const almoxById = useMemo(() => new Map(almoxarifados.map(a => [a.id, a])), [almoxarifados]);
+  const subById = useMemo(() => new Map(subAlmoxarifados.map(s => [s.id, s])), [subAlmoxarifados]);
+
   const origensDisponiveis = useMemo(() => {
-    return evidencias.filter(e => (e.local_tipo === 'almoxarifado' || e.local_tipo === 'sub_almoxarifado') && (e.quantidade_disponivel || 0) > 0 && e.local_id);
-  }, [evidencias]);
+    const base = evidencias.filter(
+      e => (e.local_tipo === 'almoxarifado' || e.local_tipo === 'sub_almoxarifado') && (e.quantidade_disponivel || 0) > 0 && e.local_id
+    );
+
+    if (!user) return [];
+    if (user.role === 'super_admin') return base;
+
+    const scopeId = user.scope_id || '';
+    if (!scopeId) return [];
+
+    const isAllowed = (tipo: string, id: string) => {
+      if (user.role === 'resp_sub_almox') {
+        return tipo === 'sub_almoxarifado' && id === scopeId;
+      }
+
+      if (user.role === 'gerente_almox') {
+        if (tipo === 'almoxarifado') return id === scopeId;
+        if (tipo === 'sub_almoxarifado') {
+          const sub = subById.get(id);
+          return !!sub?.almoxarifado_id && sub.almoxarifado_id === scopeId;
+        }
+        return false;
+      }
+
+      if (user.role === 'admin_central') {
+        const centralId = user.central_id || scopeId;
+        if (!centralId) return false;
+        if (tipo === 'almoxarifado') {
+          const almox = almoxById.get(id);
+          return !!almox?.central_id && almox.central_id === centralId;
+        }
+        if (tipo === 'sub_almoxarifado') {
+          const sub = subById.get(id);
+          const almox = sub?.almoxarifado_id ? almoxById.get(sub.almoxarifado_id) : undefined;
+          return !!almox?.central_id && almox.central_id === centralId;
+        }
+        return false;
+      }
+
+      return false;
+    };
+
+    return base.filter(o => isAllowed(o.local_tipo, o.local_id || ''));
+  }, [almoxById, evidencias, subById, user]);
 
   const [destinoQuery, setDestinoQuery] = useState('');
   const centralById = useMemo(() => new Map(centrais.map(c => [c.id, c])), [centrais]);
-  const almoxById = useMemo(() => new Map(almoxarifados.map(a => [a.id, a])), [almoxarifados]);
 
   const destinoOptions = useMemo(() => {
     const q = destinoQuery.trim().toLowerCase();
@@ -181,8 +236,18 @@ export default function DistribuicaoPage() {
         });
     }
 
+    if (formData.destino_tipo === 'setor') {
+      return setores
+        .filter(s => match(s.nome))
+        .map(s => {
+          const cid = s.central_id ? String(s.central_id) : '';
+          const central = cid ? centralById.get(cid) : undefined;
+          return { id: s.id, tipo: 'setor', nome: s.nome, extra: central ? `Central: ${central.nome}` : '' };
+        });
+    }
+
     return [];
-  }, [almoxarifados, centralById, almoxById, subAlmoxarifados, destinoQuery, formData.destino_tipo]);
+  }, [almoxarifados, centralById, almoxById, subAlmoxarifados, destinoQuery, formData.destino_tipo, setores]);
 
   const origemDisponivel = useMemo(() => {
     if (!formData.origem_id) return null;
@@ -455,9 +520,9 @@ export default function DistribuicaoPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Destino</label>
               <div className="space-y-2">
                 <div className="flex gap-2">
-                  {(['sub_almoxarifado', 'almoxarifado'] as const).map(t => {
+                  {(['setor', 'sub_almoxarifado', 'almoxarifado'] as const).map(t => {
                     const active = formData.destino_tipo === t;
-                    const label = t === 'sub_almoxarifado' ? 'Sub' : 'Almox';
+                    const label = t === 'setor' ? 'Setor' : t === 'sub_almoxarifado' ? 'Sub' : 'Almox';
                     return (
                       <button
                         key={t}

@@ -13,6 +13,7 @@ interface User {
   cargo?: string;
   role: string;
   scope_id?: string;
+  central_id?: string;
   categoria_ids?: string[];
   ativo: boolean;
 }
@@ -21,11 +22,14 @@ interface Location {
   id: string;
   nome: string;
   tipo?: string; // central, almoxarifado, sub_almoxarifado
+  central_id?: string;
+  almoxarifado_id?: string;
 }
 
 interface Setor {
   id: string;
   nome: string;
+  central_id?: string;
 }
 
 interface Categoria {
@@ -40,6 +44,7 @@ interface UserUpsertPayload {
   cargo: string;
   role: string;
   scope_id: string | null;
+  central_id?: string | null;
   categoria_ids?: string[] | null;
 }
 
@@ -60,6 +65,7 @@ export default function UsuariosPage() {
     cargo: '',
     role: 'operador',
     scope_id: '',
+    central_id: '',
     categoria_ids: [] as string[]
   });
 
@@ -68,6 +74,35 @@ export default function UsuariosPage() {
     if (!user) return;
     fetchData(user.id);
   }, [authLoading, user]);
+
+  useEffect(() => {
+    if (formData.role === 'super_admin') return;
+    if (formData.central_id) return;
+
+    const fixedCentralId = user?.role === 'admin_central' ? (user.scope_id || '') : '';
+    if (fixedCentralId) {
+      setFormData(prev => {
+        if (prev.central_id) return prev;
+        const next = { ...prev, central_id: fixedCentralId };
+        if (next.role === 'admin_central') next.scope_id = fixedCentralId;
+        return next;
+      });
+      return;
+    }
+
+    const centrais = locations.filter(l => l.tipo === 'central');
+    if (centrais.length === 1) {
+      const onlyCentralId = centrais[0]?.id || '';
+      if (onlyCentralId) {
+        setFormData(prev => {
+          if (prev.central_id) return prev;
+          const next = { ...prev, central_id: onlyCentralId };
+          if (next.role === 'admin_central') next.scope_id = onlyCentralId;
+          return next;
+        });
+      }
+    }
+  }, [formData.central_id, formData.role, locations, user]);
 
   const fetchData = async (userId: string) => {
     try {
@@ -103,6 +138,7 @@ export default function UsuariosPage() {
   };
 
   const handleEdit = (u: User) => {
+    const fixedCentralId = user?.role === 'admin_central' ? (user.scope_id || '') : '';
     setFormData({
       nome: u.nome,
       email: u.email,
@@ -110,6 +146,7 @@ export default function UsuariosPage() {
       cargo: u.cargo || '',
       role: u.role,
       scope_id: u.scope_id || '',
+      central_id: u.central_id || fixedCentralId,
       categoria_ids: u.categoria_ids || []
     });
     setEditingId(u.id);
@@ -144,7 +181,8 @@ export default function UsuariosPage() {
         role: formData.role,
         scope_id: formData.scope_id || null,
         password: formData.password || undefined,
-        categoria_ids: formData.categoria_ids
+        categoria_ids: formData.categoria_ids,
+        central_id: (formData.central_id || '').trim() || null
       };
 
       if (editingId && !payload.password) delete payload.password;
@@ -155,6 +193,17 @@ export default function UsuariosPage() {
       // Limpar scope_id se for super_admin
       if (payload.role === 'super_admin') payload.scope_id = null;
       if (payload.role === 'super_admin') payload.categoria_ids = null;
+      if (payload.role === 'super_admin') payload.central_id = null;
+
+      if (payload.role !== 'super_admin') {
+        if (!payload.central_id) {
+          alert('Central é obrigatória');
+          return;
+        }
+        if (payload.role === 'admin_central') {
+          payload.scope_id = payload.central_id;
+        }
+      }
 
       const res = await fetch(url, {
         method: method,
@@ -168,7 +217,8 @@ export default function UsuariosPage() {
       }
       
       setShowModal(false);
-      setFormData({ nome: '', email: '', password: '', cargo: '', role: 'operador', scope_id: '', categoria_ids: [] });
+      const fixedCentralId = user?.role === 'admin_central' ? (user.scope_id || '') : '';
+      setFormData({ nome: '', email: '', password: '', cargo: '', role: 'operador', scope_id: '', central_id: fixedCentralId, categoria_ids: [] });
       setEditingId(null);
       fetchData(user.id);
     } catch (error: unknown) {
@@ -178,7 +228,8 @@ export default function UsuariosPage() {
   };
 
   const openNewModal = () => {
-    setFormData({ nome: '', email: '', password: '', cargo: '', role: 'operador', scope_id: '', categoria_ids: [] });
+    const fixedCentralId = user?.role === 'admin_central' ? (user.scope_id || '') : '';
+    setFormData({ nome: '', email: '', password: '', cargo: '', role: 'operador', scope_id: '', central_id: fixedCentralId, categoria_ids: [] });
     setEditingId(null);
     setShowModal(true);
   };
@@ -208,9 +259,23 @@ export default function UsuariosPage() {
   // Filtrar locais com base no papel selecionado
   const getAvailableScopes = () => {
     const role = formData.role;
-    if (role === 'admin_central') return locations.filter(l => l.tipo === 'central');
-    if (role === 'gerente_almox') return locations.filter(l => l.tipo === 'almoxarifado' || !l.tipo);
-    if (role === 'resp_sub_almox') return locations.filter(l => l.tipo === 'sub_almoxarifado');
+    const centralId = formData.central_id;
+    if (role === 'admin_central') {
+      if (centralId) return locations.filter(l => l.tipo === 'central' && l.id === centralId);
+      return locations.filter(l => l.tipo === 'central');
+    }
+    if (role === 'gerente_almox') {
+      return locations.filter(l => l.tipo === 'almoxarifado' && (!centralId || l.central_id === centralId));
+    }
+    if (role === 'resp_sub_almox') {
+      return locations.filter(l => {
+        if (l.tipo !== 'sub_almoxarifado') return false;
+        if (!centralId) return true;
+        const almoxId = l.almoxarifado_id;
+        const almoxCentralId = almoxId ? locations.find(a => a.tipo === 'almoxarifado' && a.id === almoxId)?.central_id : undefined;
+        return almoxCentralId === centralId;
+      });
+    }
     if (role === 'operador_setor') return setores; // Precisa converter Setor para formato compatível ou usar outro map
     return [];
   };
@@ -368,7 +433,19 @@ export default function UsuariosPage() {
                   <select 
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white"
                     value={formData.role}
-                    onChange={e => setFormData({...formData, role: e.target.value})}
+                    onChange={e => {
+                      const nextRole = e.target.value;
+                      setFormData(prev => {
+                        if (nextRole === 'super_admin') {
+                          return { ...prev, role: nextRole, scope_id: '', central_id: '' };
+                        }
+                        if (nextRole === 'admin_central') {
+                          const nextCentralId = prev.central_id || '';
+                          return { ...prev, role: nextRole, scope_id: nextCentralId };
+                        }
+                        return { ...prev, role: nextRole, scope_id: '' };
+                      });
+                    }}
                   >
                     <option value="operador">Operador</option>
                     <option value="super_admin">Super Admin</option>
@@ -378,6 +455,35 @@ export default function UsuariosPage() {
                     <option value="operador_setor">Operador Setor</option>
                   </select>
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Central {formData.role !== 'super_admin' && <span className="text-red-600">*</span>}
+                </label>
+                <select
+                  required={formData.role !== 'super_admin'}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                  value={formData.central_id}
+                  onChange={e => {
+                    const nextCentralId = (e.target.value || '').trim();
+                    setFormData(prev => {
+                      const next: typeof prev = { ...prev, central_id: nextCentralId };
+                      if (next.role === 'admin_central') {
+                        next.scope_id = nextCentralId;
+                      } else {
+                        next.scope_id = '';
+                      }
+                      return next;
+                    });
+                  }}
+                  disabled={user?.role === 'admin_central' && !!user.scope_id}
+                >
+                  <option value="">Selecione a central...</option>
+                  {locations
+                    .filter(l => l.tipo === 'central')
+                    .map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                </select>
               </div>
 
               {/* Seleção de Escopo (Local) - Condicional */}
@@ -394,7 +500,9 @@ export default function UsuariosPage() {
                     >
                       <option value="">Selecione o local...</option>
                       {formData.role === 'operador_setor' 
-                        ? setores.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)
+                        ? setores
+                            .filter(s => !formData.central_id || s.central_id === formData.central_id)
+                            .map(s => <option key={s.id} value={s.id}>{s.nome}</option>)
                         : getAvailableScopes().map(l => <option key={l.id} value={l.id}>{l.nome}</option>)
                       }
                     </select>

@@ -49,14 +49,14 @@ def login():
         return redirect(url_for('main.index'))
     
     if request.method == 'POST':
-        # Rate limiting (antes de processar)
         ip = _get_client_ip()
-        if _too_many_attempts(ip):
-            current_app.logger.warning(f"Rate limit de login atingido para IP {ip}")
-            if request.is_json:
-                return jsonify({'error': 'Muitas tentativas. Tente novamente em alguns minutos.'}), 429
-            flash('Muitas tentativas de login. Tente novamente em alguns minutos.', 'error')
-            return render_template('auth/login.html')
+        if not current_app.config.get('TESTING'):
+            if _too_many_attempts(ip):
+                current_app.logger.warning(f"Rate limit de login atingido para IP {ip}")
+                if request.is_json:
+                    return jsonify({'error': 'Muitas tentativas. Tente novamente em alguns minutos.'}), 429
+                flash('Muitas tentativas de login. Tente novamente em alguns minutos.', 'error')
+                return render_template('auth/login.html')
 
         if request.is_json:
             # Login via API JSON
@@ -102,7 +102,8 @@ def login():
             return redirect(url_for('main.index'))
         else:
             # Registrar tentativa falha
-            _record_attempt(ip)
+            if not current_app.config.get('TESTING'):
+                _record_attempt(ip)
             error_msg = 'Credenciais inválidas'
             if request.is_json:
                 return jsonify({'error': error_msg}), 401

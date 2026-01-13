@@ -1,14 +1,13 @@
-# Almox SMS - Sistema de Gerenciamento de Almoxarifado
+# PluckHub / Almox SMS - Sistema de Gerenciamento de Almoxarifado
 
-Sistema modular de gerenciamento de almoxarifado desenvolvido em Flask com arquitetura baseada em blueprints.
+Sistema de gerenciamento de almoxarifado com backend em Python e persistência em MongoDB.
 
 ## Características
 
 - **Arquitetura Modular**: Utiliza Flask Blueprints para organização do código
 - **Hierarquia Flexível**: Sistema de 4 níveis (Central > Almoxarifado > Sub-Almoxarifado > Setor)
-- **Interface Moderna**: Frontend responsivo com Bootstrap 5
 - **API RESTful**: Endpoints para operações CRUD
-- **Banco de Dados**: SQLite para desenvolvimento, PostgreSQL para produção
+- **Banco de Dados**: MongoDB (desenvolvimento e produção)
 
 ## Estrutura da Hierarquia
 
@@ -58,32 +57,24 @@ A aplicação estará disponível em `http://localhost:5000`
 ```
 almox-sms/
 ├── app.py                 # Arquivo principal da aplicação
-├── config.py              # Configurações da aplicação
+├── config/                # Configurações da aplicação
 ├── extensions.py          # Extensões Flask
 ├── requirements.txt       # Dependências
 ├── blueprints/           # Blueprints da aplicação
 │   ├── __init__.py
 │   ├── main.py           # Rotas principais
-│   ├── api.py            # API REST
-│   └── hierarchy.py      # Gerenciamento de hierarquia
-├── models/               # Modelos de dados
-│   ├── __init__.py
-│   └── hierarchy.py      # Modelos da hierarquia
 └── templates/            # Templates HTML
     ├── base.html         # Template base
     ├── index.html        # Dashboard
     ├── configuracoes.html # Configurações
-    ├── hierarquia.html   # Visualização da hierarquia
-    └── hierarchy/        # Templates de gerenciamento
-        └── index.html    # Gerenciar hierarquia
 ```
 
 ## Funcionalidades Implementadas
 
 ### ✅ Etapa 1 - Concluída
 - [x] Estrutura base da aplicação Flask com blueprints
-- [x] Sistema de configuração com SQLite/PostgreSQL
-- [x] Modelos de dados para hierarquia
+- [x] Sistema de configuração com MongoDB
+- [x] Estruturas e validações de hierarquia no backend
 - [x] API CRUD para centrais e almoxarifados
 - [x] Frontend com menu lateral
 - [x] Página de configurações
@@ -111,9 +102,8 @@ almox-sms/
 
 ## Tecnologias Utilizadas
 
-- **Backend**: Flask, SQLAlchemy, Flask-Migrate
-- **Frontend**: Bootstrap 5, jQuery, Font Awesome
-- **Banco de Dados**: SQLite (dev), PostgreSQL (prod)
+- **Backend**: Flask, Flask-Login
+- **Banco de Dados**: MongoDB (PyMongo)
 - **Arquitetura**: Blueprints, API REST
 
 ## Notas de CSRF e MongoDB

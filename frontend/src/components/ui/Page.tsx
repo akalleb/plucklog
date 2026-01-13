@@ -3,7 +3,7 @@ import Image from 'next/image';
 
 export function Page({ children, width = 'lg' }: { children: ReactNode; width?: 'md' | 'lg' | 'xl' }) {
   const map: Record<string, string> = { md: 'max-w-4xl', lg: 'max-w-6xl', xl: 'max-w-7xl' };
-  return <div className={`px-4 py-6 md:p-8 ${map[width] || map.lg} mx-auto`}>{children}</div>;
+  return <div className={`px-3 py-5 sm:px-4 sm:py-6 md:p-8 ${map[width] || map.lg} mx-auto`}>{children}</div>;
 }
 
 export function Loading({

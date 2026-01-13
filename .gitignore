@@ -112,6 +112,12 @@ dmypy.json
 *.swo
 *~
 
+# Node / Next
+node_modules/
+.next/
+frontend/node_modules/
+frontend/.next/
+
 # OS
 .DS_Store
 Thumbs.db
@@ -128,3 +134,8 @@ logs/
 # Temporary files
 *.tmp
 *.temp
+
+# App-generated backups & reports
+backups/*.json
+pytest-report.json
+reset_summary.json

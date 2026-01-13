@@ -3,14 +3,13 @@ from flask import request, jsonify, session, redirect, url_for, flash, current_a
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from werkzeug.security import check_password_hash, generate_password_hash
 from datetime import datetime
-import json
 # Removido: from models.usuario import Usuario, LogAuditoria
 import extensions
 from bson.objectid import ObjectId
 from config.ui_blocks import get_ui_blocks_config
 import secrets
 
-# ConfiguraÃ§Ã£o do Flask-Login
+# Configuração do Flask-Login
 login_manager = LoginManager()
 
 # CSRF helpers
@@ -37,7 +36,7 @@ def extract_csrf_header() -> str | None:
         or request.headers.get('X-CSRF')
     )
 
-# Classe de usuÃ¡rio para MongoDB
+# Classe de usuário para MongoDB
 class MongoUser:
     def __init__(self, data: dict):
         self.data = data or {}
@@ -57,7 +56,7 @@ class MongoUser:
     def is_anonymous(self):
         return False
     
-    # Campos bÃ¡sicos
+    # Campos básicos
     @property
     def username(self):
         return self.data.get('username')
@@ -598,7 +597,7 @@ def init_login_manager(app):
     """Inicializa o gerenciador de login"""
     login_manager.init_app(app)
     login_manager.login_view = 'auth.login'
-    login_manager.login_message = 'Por favor, faÃ§a login para acessar esta pÃ¡gina.'
+    login_manager.login_message = 'Por favor, faça login para acessar esta página.'
     login_manager.login_message_category = 'info'
 
     @login_manager.unauthorized_handler
@@ -673,7 +672,7 @@ def authenticate_user(username, password):
 
 
 def logout_user_with_audit():
-    """Faz logout do usuÃ¡rio com registro de auditoria (MongoDB)"""
+    """Faz logout do usuário com registro de auditoria (MongoDB)"""
     try:
         if current_user.is_authenticated:
             log_auditoria('LOGOUT')
@@ -684,7 +683,7 @@ def logout_user_with_audit():
         except Exception:
             pass
 
-# Decoradores de autorizaÃ§Ã£o por nÃ­vel hierÃ¡rquico
+# Decoradores de autorização por nível hierárquico
 
 def require_level(*allowed_levels):
     """
@@ -731,14 +730,14 @@ def require_manager_or_above(f):
     return require_level('super_admin', 'admin_central', 'gerente_almox', 'secretario')(f)
 
 def require_responsible_or_above(f):
-    """Decorador que requer acesso de responsÃ¡vel ou superior"""
+    """Decorador que requer acesso de responsável ou superior"""
     return require_level('super_admin', 'admin_central', 'gerente_almox', 'resp_sub_almox', 'secretario')(f)
 
 def require_any_level(f):
-    """Decorador que requer qualquer nÃ­vel de acesso (apenas login)"""
+    """Decorador que requer qualquer nível de acesso (apenas login)"""
     return require_level('super_admin', 'admin_central', 'gerente_almox', 'resp_sub_almox', 'operador_setor', 'secretario')(f)
 
-# Decoradores de autorizaÃ§Ã£o por escopo hierÃ¡rquico
+# Decoradores de autorização por escopo hierárquico
 
 def require_central_access(central_id_param='central_id'):
     """
@@ -856,16 +855,16 @@ def require_sub_almoxarifado_access(sub_almoxarifado_id_param='sub_almoxarifado_
 
 def require_setor_access(setor_id_param='setor_id'):
     """
-    Decorador que verifica acesso a um setor especÃ­fico
+    Decorador que verifica acesso a um setor específico
     
     Args:
-        setor_id_param: Nome do parÃ¢metro que contÃ©m o ID do setor
+        setor_id_param: Nome do parâmetro que contém o ID do setor
     """
     def decorator(f):
         @wraps(f)
         @login_required
         def decorated_function(*args, **kwargs):
-            # ObtÃ©m o ID do setor dos parÃ¢metros da URL, form ou JSON
+            # Obtém o ID do setor dos parâmetros da URL, form ou JSON
             setor_id = None
             if setor_id_param in kwargs:
                 setor_id = kwargs[setor_id_param]
@@ -878,18 +877,18 @@ def require_setor_access(setor_id_param='setor_id'):
             
             if setor_id and not current_user.can_access_setor(setor_id):
                 if request.is_json:
-                    return jsonify({'error': 'Acesso negado - setor nÃ£o autorizado'}), 403
-                flash('VocÃª nÃ£o tem permissÃ£o para acessar este setor.', 'error')
+                    return jsonify({'error': 'Acesso negado - setor não autorizado'}), 403
+                flash('Você não tem permissão para acessar este setor.', 'error')
                 return redirect(url_for('main.index'))
             
             return f(*args, **kwargs)
         return decorated_function
     return decorator
 
-# Filtros de escopo automÃ¡ticos
+# Filtros de escopo automáticos
 
 class ScopeFilter:
-    """Classe para aplicar filtros de escopo baseados no usuÃ¡rio logado"""
+    """Classe para aplicar filtros de escopo baseados no usuário logado"""
     
     @staticmethod
     def get_centrais_filter():
@@ -1113,7 +1112,7 @@ class ScopeFilter:
         return {'_id': -1}
 
 def get_user_context():
-    """ObtÃ©m o contexto do usuÃ¡rio para injeÃ§Ã£o em templates (MongoDB)"""
+    """Obtém o contexto do usuário para injeção em templates (MongoDB)"""
     if current_user.is_authenticated:
         ui_config = get_ui_blocks_config()
         menu_blocks = ui_config.get_menu_blocks_for_user(current_user.nivel_acesso)
@@ -1137,7 +1136,7 @@ def get_user_context():
             'super_admin': 'Super Admin (Todos os escopos)',
             'admin_central': 'Admin Central',
             'gerente_almox': 'Gerente de Almoxarifado',
-            'resp_sub_almox': 'ResponsÃ¡vel de Sub-Almoxarifado',
+            'resp_sub_almox': 'Responsável de Sub-Almoxarifado',
             'operador_setor': 'Operador de Setor',
             'secretario': 'Secretário',
         }
@@ -1146,7 +1145,7 @@ def get_user_context():
             'user': current_user,
             'menu_blocks': menu_blocks,
             'dashboard_widgets': dashboard_widgets,
-            'scope_name': scope_labels.get(level, 'UsuÃ¡rio'),
+            'scope_name': scope_labels.get(level, 'Usuário'),
             'user_level': level,
             'user_name': getattr(current_user, 'nome_completo', None),
             **flags

@@ -3,7 +3,7 @@ from logging.handlers import RotatingFileHandler
 from flask import Flask, request, jsonify
 import os
 from config import Config
-from extensions import db, migrate, init_mongo
+from extensions import init_mongo
 from blueprints.main import main_bp
 from blueprints.auth import auth_bp
 from auth import init_login_manager, get_user_context
@@ -24,11 +24,6 @@ def create_app(config_class=Config):
         app.config['TESTING'] = getattr(config_class, 'TESTING', app.config.get('TESTING', False))
     except Exception:
         pass
-
-    # Inicializar extensões
-    # SQLAlchemy é mantido apenas para compatibilidade, não criar tabelas
-    db.init_app(app)
-    migrate.init_app(app, db)
 
     # MongoDB (persistência oficial)
     try:
@@ -129,7 +124,23 @@ def create_app(config_class=Config):
     return app
 
 # Expor o app para gunicorn
-app = create_app()
+def _should_create_global_app() -> bool:
+    try:
+        import sys
+        if 'pytest' in sys.modules:
+            return False
+        if any('pytest' in str(a).lower() for a in sys.argv):
+            return False
+    except Exception:
+        pass
+    try:
+        if os.environ.get('PYTEST_CURRENT_TEST'):
+            return False
+    except Exception:
+        pass
+    return True
+
+app = create_app() if _should_create_global_app() else None
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', '5000'))

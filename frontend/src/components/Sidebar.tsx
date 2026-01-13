@@ -4,7 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { Package, ArrowLeftRight, Home, LogOut, PackagePlus, Truck, Box, Users, BarChart, Menu, Warehouse, UserCircle, MapPin, ShoppingCart } from 'lucide-react';
+import { Package, ArrowLeftRight, Home, LogOut, PackagePlus, Truck, Box, Users, BarChart, Menu, Warehouse, UserCircle, MapPin, ShoppingCart, X } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
 export default function Sidebar() {
@@ -18,6 +18,18 @@ export default function Sidebar() {
       router.push('/login');
     }
   }, [user, loading, pathname, router]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      document.body.style.overflow = '';
+      return;
+    }
+
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isOpen]);
 
   if (loading) return null;
 
@@ -45,10 +57,18 @@ export default function Sidebar() {
         <button 
           onClick={() => setIsOpen(true)}
           className="p-2 -ml-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+          aria-label="Abrir menu"
         >
           <Menu className="h-6 w-6" />
         </button>
-        <Image src="/assets/logo_pluck.svg" alt="Pluck" width={240} height={64} className="h-10 w-auto" priority />
+        <Image
+          src="/assets/logo_pluck.svg"
+          alt="Pluck"
+          width={200}
+          height={64}
+          className="h-9 w-auto max-w-[180px]"
+          priority
+        />
         <div className="w-8"></div> {/* Spacer for balance */}
       </div>
 
@@ -68,6 +88,13 @@ export default function Sidebar() {
           {/* Logo & Close Button */}
           <div className="h-16 flex items-center justify-between px-6 border-b border-gray-100">
             <Image src="/assets/logo_pluck.svg" alt="Pluck" width={240} height={64} className="h-10 w-auto" priority />
+            <button
+              onClick={() => setIsOpen(false)}
+              className="md:hidden p-2 -mr-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+              aria-label="Fechar menu"
+            >
+              <X className="h-5 w-5" />
+            </button>
           </div>
 
           {/* Navigation */}

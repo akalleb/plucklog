@@ -5,9 +5,11 @@ from bson import ObjectId
 from typing import List, Optional, Dict, Any
 import os
 import math
+import mongomock
 from pydantic import BaseModel, Field
 from datetime import datetime
 from dotenv import load_dotenv
+from pymongo.errors import DuplicateKeyError
 
 # Carregar variáveis de ambiente
 load_dotenv()
@@ -39,8 +41,71 @@ MONGO_DB = os.getenv("MONGO_DB", "almox_db")
 class Database:
     client: AsyncIOMotorClient = None
     db = None
+    is_mock: bool = False
 
 db = Database()
+
+class _AsyncMockCursor:
+    def __init__(self, cursor):
+        self._cursor = cursor
+
+    def sort(self, key_or_list, direction=None):
+        if direction is None:
+            self._cursor = self._cursor.sort(key_or_list)
+        else:
+            self._cursor = self._cursor.sort(key_or_list, direction)
+        return self
+
+    def skip(self, n: int):
+        self._cursor = self._cursor.skip(n)
+        return self
+
+    def limit(self, n: int):
+        self._cursor = self._cursor.limit(n)
+        return self
+
+    async def to_list(self, length: Optional[int] = None):
+        items = list(self._cursor)
+        if length is None:
+            return items
+        return items[:length]
+
+
+class _AsyncMockCollection:
+    def __init__(self, collection):
+        self._collection = collection
+
+    async def find_one(self, *args, **kwargs):
+        return self._collection.find_one(*args, **kwargs)
+
+    def find(self, *args, **kwargs):
+        return _AsyncMockCursor(self._collection.find(*args, **kwargs))
+
+    def aggregate(self, pipeline, *args, **kwargs):
+        return _AsyncMockCursor(self._collection.aggregate(pipeline, *args, **kwargs))
+
+    async def insert_one(self, *args, **kwargs):
+        return self._collection.insert_one(*args, **kwargs)
+
+    async def update_one(self, *args, **kwargs):
+        return self._collection.update_one(*args, **kwargs)
+
+    async def delete_one(self, *args, **kwargs):
+        return self._collection.delete_one(*args, **kwargs)
+
+    async def count_documents(self, *args, **kwargs):
+        return self._collection.count_documents(*args, **kwargs)
+
+
+class _AsyncMockDatabase:
+    def __init__(self, database):
+        self._database = database
+
+    def __getitem__(self, name: str):
+        return _AsyncMockCollection(self._database[name])
+
+    def __getattr__(self, name: str):
+        return _AsyncMockCollection(getattr(self._database, name))
 
 async def _ensure_super_admin() -> None:
     email = str(os.getenv("SUPER_ADMIN_EMAIL") or "admin@pluck.local").strip().lower()
@@ -199,13 +264,26 @@ async def _infer_setor_links(item: "SetorItem") -> Dict[str, Any]:
 
 @app.on_event("startup")
 async def startup_db_client():
-    db.client = AsyncIOMotorClient(MONGO_URI, serverSelectionTimeoutMS=5000)
-    db.db = db.client[MONGO_DB]
+    env = (os.getenv("FLASK_ENV") or os.getenv("ENV") or "development").strip().lower()
+    allow_mock_db = env != "production"
+    db.is_mock = False
+
     try:
+        db.client = AsyncIOMotorClient(MONGO_URI, serverSelectionTimeoutMS=5000)
+        db.db = db.client[MONGO_DB]
         await db.client.admin.command("ping")
         print(f"Conectado ao MongoDB Async: {MONGO_DB}")
     except Exception as exc:
+        if db.client:
+            db.client.close()
+        db.client = None
+        if not allow_mock_db:
+            raise
+        db.db = _AsyncMockDatabase(mongomock.MongoClient()[MONGO_DB])
+        db.is_mock = True
         print(f"Falha ao conectar no MongoDB Async: {exc}")
+        print("Usando banco mock em memória (mongomock)")
+
     await _ensure_super_admin()
 
 @app.on_event("shutdown")
@@ -223,6 +301,7 @@ class UserItem(BaseModel):
     cargo: Optional[str] = None
     role: str = "operador" # super_admin, admin_central, gerente_almox, resp_sub_almox, operador_setor
     scope_id: Optional[str] = None # ID do local que o usuário gerencia (Central, Almox, Setor)
+    central_id: Optional[str] = None
     categoria_ids: Optional[List[str]] = None
     ativo: bool = True
 
@@ -233,6 +312,7 @@ class UserCreate(BaseModel):
     cargo: Optional[str] = None
     role: str = "operador"
     scope_id: Optional[str] = None
+    central_id: Optional[str] = None
     categoria_ids: Optional[List[str]] = None
 
 class UserUpdate(BaseModel):
@@ -242,6 +322,7 @@ class UserUpdate(BaseModel):
     cargo: Optional[str] = None
     role: Optional[str] = None
     scope_id: Optional[str] = None
+    central_id: Optional[str] = None
     categoria_ids: Optional[List[str]] = None
     ativo: Optional[bool] = None
 
@@ -1971,6 +2052,7 @@ async def get_usuarios():
         if not u.get("nome") or not u.get("email"):
             continue
             
+        computed_central_id = await _compute_user_central_id(u.get("role") or "operador", u.get("scope_id"), u.get("central_id"), strict=False)
         results.append({
             "id": _public_id(u) or str(u.get("_id")),
             "nome": u.get("nome"),
@@ -1978,6 +2060,7 @@ async def get_usuarios():
             "cargo": u.get("cargo"),
             "role": u.get("role") or "operador",
             "scope_id": _norm_id(u.get("scope_id")),
+            "central_id": computed_central_id,
             "categoria_ids": [str(c) for c in (u.get("categoria_ids") or []) if c],
             "ativo": u.get("ativo", True)
         })
@@ -1997,12 +2080,14 @@ async def login_auth(payload: LoginRequest):
     if not password_hash or not check_password_hash(password_hash, payload.password):
         raise HTTPException(status_code=401, detail="Usuário ou senha inválidos")
 
+    computed_central_id = await _compute_user_central_id(u.get("role") or "operador", u.get("scope_id"), u.get("central_id"), strict=False)
     return {
         "id": _public_id(u) or str(u.get("_id")),
         "nome": u.get("nome"),
         "email": u.get("email"),
         "role": u.get("role") or "operador",
         "scope_id": _norm_id(u.get("scope_id")),
+        "central_id": computed_central_id,
         "categoria_ids": [str(c) for c in (u.get("categoria_ids") or []) if c],
         "ativo": u.get("ativo", True),
     }
@@ -2022,6 +2107,93 @@ async def _normalize_categoria_ids(values: Optional[List[str]]) -> Optional[List
     normalized = list(dict.fromkeys([_norm_id(x) for x in normalized if x]))
     return normalized or None
 
+async def _compute_user_central_id(role: str, scope_id: Optional[str], provided_central_id: Optional[str], strict: bool) -> Optional[str]:
+    role = (role or "operador").strip()
+    scope_id = _norm_id(scope_id)
+    provided_central_id = _norm_id(provided_central_id)
+
+    if role == "super_admin":
+        return None
+
+    if role == "admin_central":
+        if not scope_id:
+            if strict:
+                raise HTTPException(status_code=400, detail="scope_id é obrigatório para admin_central")
+            return provided_central_id
+        central = await _find_one_by_id("centrais", scope_id)
+        if not central:
+            if strict:
+                raise HTTPException(status_code=400, detail="Central inválida")
+            return provided_central_id
+        derived = _public_id(central) or scope_id
+        if provided_central_id and provided_central_id != derived and strict:
+            raise HTTPException(status_code=400, detail="central_id não confere com a central do escopo")
+        return derived
+
+    if role == "gerente_almox":
+        if not scope_id:
+            if strict:
+                raise HTTPException(status_code=400, detail="scope_id é obrigatório para gerente_almox")
+            return provided_central_id
+        almox = await _find_one_by_id("almoxarifados", scope_id)
+        central_id = _norm_id(almox.get("central_id")) if almox else None
+        if not central_id:
+            if strict:
+                raise HTTPException(status_code=400, detail="Almoxarifado inválido ou sem central vinculada")
+            return provided_central_id
+        if provided_central_id and provided_central_id != central_id and strict:
+            raise HTTPException(status_code=400, detail="central_id não confere com o almoxarifado do escopo")
+        return central_id
+
+    if role == "resp_sub_almox":
+        if not scope_id:
+            if strict:
+                raise HTTPException(status_code=400, detail="scope_id é obrigatório para resp_sub_almox")
+            return provided_central_id
+        sub = await _find_one_by_id("sub_almoxarifados", scope_id)
+        almox_id = _norm_id(sub.get("almoxarifado_id")) if sub else None
+        almox = await _find_one_by_id("almoxarifados", almox_id) if almox_id else None
+        central_id = _norm_id(almox.get("central_id")) if almox else None
+        if not central_id:
+            if strict:
+                raise HTTPException(status_code=400, detail="Sub-almoxarifado inválido ou sem central vinculada")
+            return provided_central_id
+        if provided_central_id and provided_central_id != central_id and strict:
+            raise HTTPException(status_code=400, detail="central_id não confere com o sub-almoxarifado do escopo")
+        return central_id
+
+    if role == "operador_setor":
+        if not scope_id:
+            if strict:
+                raise HTTPException(status_code=400, detail="scope_id é obrigatório para operador_setor")
+            return provided_central_id
+        setor = await _find_one_by_id("setores", scope_id)
+        if not setor:
+            if strict:
+                raise HTTPException(status_code=400, detail="Setor inválido")
+            return provided_central_id
+        chain = await _resolve_parent_chain_from_setor(setor)
+        central_id = _norm_id(chain.get("central_id"))
+        if not central_id:
+            if strict:
+                raise HTTPException(status_code=400, detail="Setor sem central vinculada")
+            return provided_central_id
+        if provided_central_id and provided_central_id != central_id and strict:
+            raise HTTPException(status_code=400, detail="central_id não confere com o setor do escopo")
+        return central_id
+
+    if not provided_central_id:
+        if strict:
+            raise HTTPException(status_code=400, detail="central_id é obrigatório para este perfil")
+        return None
+
+    central = await _find_one_by_id("centrais", provided_central_id)
+    if not central:
+        if strict:
+            raise HTTPException(status_code=400, detail="Central inválida")
+        return None
+    return _public_id(central) or provided_central_id
+
 @app.post("/api/usuarios")
 async def create_usuario(user: UserCreate):
     # Validar email
@@ -2036,6 +2208,7 @@ async def create_usuario(user: UserCreate):
     del doc["password"]
     doc["created_at"] = datetime.now()
     doc["ativo"] = True
+    doc["central_id"] = await _compute_user_central_id(doc.get("role") or "operador", doc.get("scope_id"), doc.get("central_id"), strict=True)
     
     try:
         res = await db.db.usuarios.insert_one(doc)
@@ -2061,6 +2234,12 @@ async def update_usuario(user_id: str, user: UserUpdate):
     
     if "password" in update_data:
         update_data["password_hash"] = generate_password_hash(update_data.pop("password"))
+
+    if "role" in update_data or "scope_id" in update_data or "central_id" in update_data:
+        merged_role = update_data.get("role") or (existing.get("role") or "operador")
+        merged_scope_id = update_data.get("scope_id") if "scope_id" in update_data else existing.get("scope_id")
+        merged_central_id = update_data.get("central_id") if "central_id" in update_data else existing.get("central_id")
+        update_data["central_id"] = await _compute_user_central_id(merged_role, merged_scope_id, merged_central_id, strict=True)
         
     if not update_data:
          raise HTTPException(status_code=400, detail="Nada para atualizar")
@@ -2080,6 +2259,18 @@ async def delete_usuario(user_id: str):
     return {"status": "success", "message": "Usuário removido"}
 
 class ProdutoCreate(BaseModel):
+    central_id: str
+    nome: str
+    codigo: str
+    unidade: Optional[str] = None
+    descricao: Optional[str] = None
+    categoria_id: Optional[str] = None
+    categoria_nome: Optional[str] = None
+    observacao: Optional[str] = None
+    ativo: bool = True
+
+class ProdutoUpdate(BaseModel):
+    central_id: Optional[str] = None
     nome: str
     codigo: str
     unidade: Optional[str] = None
@@ -2100,7 +2291,12 @@ async def create_produto(prod: ProdutoCreate):
          pid = existing.get('id') if existing.get('id') is not None else str(existing.get('_id'))
          return {"id": pid, "message": "Produto já existe", "exists": True}
     
+    central = await _find_one_by_id("centrais", prod.central_id)
+    if not central:
+        raise HTTPException(status_code=400, detail="Central inválida")
+
     doc = prod.dict(exclude={"categoria_nome"})
+    doc["central_id"] = _public_id(central) or _norm_id(prod.central_id)
     doc["created_at"] = datetime.now()
     doc["observacoes"] = doc.pop("observacao", None) # Padronizar
     
@@ -2131,7 +2327,7 @@ async def gerar_codigo_produto(req: CodigoRequest):
     return {"codigo": f"P-{suffix}"}
 
 @app.put("/api/produtos/{produto_id}")
-async def update_produto(produto_id: str, prod: ProdutoCreate):
+async def update_produto(produto_id: str, prod: ProdutoUpdate):
     q = {}
     if ObjectId.is_valid(produto_id): q = {"_id": ObjectId(produto_id)}
     elif produto_id.isdigit(): q = {"id": int(produto_id)}
@@ -2142,8 +2338,14 @@ async def update_produto(produto_id: str, prod: ProdutoCreate):
     if not existing:
         raise HTTPException(status_code=404, detail="Produto não encontrado")
 
-    update_data = prod.dict(exclude={"categoria_nome", "codigo"}) # Não permitir mudar código facilmente
+    update_data = prod.dict(exclude_unset=True, exclude={"categoria_nome", "codigo"}) # Não permitir mudar código facilmente
     update_data["observacoes"] = update_data.pop("observacao", None)
+
+    if "central_id" in update_data and update_data.get("central_id"):
+        central = await _find_one_by_id("centrais", str(update_data.get("central_id")))
+        if not central:
+            raise HTTPException(status_code=400, detail="Central inválida")
+        update_data["central_id"] = _public_id(central) or _norm_id(update_data.get("central_id"))
     
     # Atualizar categoria se mudou
     if prod.categoria_id:

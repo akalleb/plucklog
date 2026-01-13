@@ -1,15 +1,9 @@
-from flask_sqlalchemy import SQLAlchemy
-from flask_migrate import Migrate
 from pymongo import MongoClient, ASCENDING, DESCENDING
 from pymongo.errors import ServerSelectionTimeoutError, AutoReconnect
 from werkzeug.security import generate_password_hash
 from datetime import datetime
 import os
 import time
-
-# SQLAlchemy (mantido para compatibilidade em partes do código)
-db = SQLAlchemy()
-migrate = Migrate()
 
 # MongoDB (persistência oficial)
 mongo_client: MongoClient | None = None
@@ -133,6 +127,43 @@ def _sanitize_mongo_uri(uri: str) -> str:
 def init_mongo(app):
     """Inicializa cliente MongoDB usando configurações do app e semeia usuário admin padrão se necessário."""
     global mongo_client, mongo_db
+    if app.config.get('TESTING'):
+        import mongomock
+        dbname = app.config.get('MONGO_DB') or 'almox_sms_test'
+        mongo_client = mongomock.MongoClient()
+        mongo_db = mongo_client[dbname]
+        try:
+            for name in ['usuarios','centrais','almoxarifados','sub_almoxarifados','setores','categorias','produtos','movimentacoes','locais','logs_auditoria','listas_compras','estoques','lotes','compras','demandas']:
+                try:
+                    mongo_db.drop_collection(name)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        ensure_collections_and_indexes(mongo_db, logger=app.logger)
+        usuarios_col = mongo_db['usuarios']
+        try:
+            usuarios_col.create_index([('username', ASCENDING)], unique=True, name='idx_unique_username')
+        except Exception:
+            pass
+        existing = usuarios_col.find_one({'username': 'admin'})
+        if existing is None:
+            usuarios_col.insert_one({
+                'username': 'admin',
+                'email': 'admin@local',
+                'nome': 'Administrador',
+                'password_hash': generate_password_hash('admin'),
+                'ativo': True,
+                'nivel_acesso': 'super_admin',
+                'data_criacao': datetime.utcnow(),
+                'ultimo_login': None,
+                'central_id': None,
+                'almoxarifado_id': None,
+                'sub_almoxarifado_id': None,
+                'setor_id': None,
+            })
+        return mongo_client, mongo_db
+
     if mongo_client is None:
         mongo_uri = app.config.get('MONGO_URI')
         dbname = app.config.get('MONGO_DB')
@@ -222,10 +253,8 @@ def init_mongo(app):
             except Exception as e:
                 app.logger.error(f'[Mongo Seed] Falha ao semear/atualizar usuário admin: {e}')
         except (ServerSelectionTimeoutError, AutoReconnect, Exception) as e:
-            # Não usar mongomock: sempre exigir MongoDB real
             app.logger.error(f"[Mongo Init] Conexão MongoDB indisponível: {type(e).__name__}: {e}")
             mongo_client = None
             mongo_db = None
-            # Propagar falha para impedir inicialização sem banco real
             raise RuntimeError(f"MongoDB indisponível: {type(e).__name__}: {e}")
     return mongo_client, mongo_db

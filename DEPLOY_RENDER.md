@@ -39,9 +39,8 @@ As seguintes modificações já foram implementadas no código:
 
 1. **Criar conta no Render**: https://render.com/
 2. **Conectar repositório GitHub**
-3. **Criar Web Service**:
-   - **Build Command**: `pip install -r requirements.txt`
-   - **Start Command**: `python start.py && gunicorn -w 2 -b 0.0.0.0:$PORT app:app`
+3. **Criar Web Service (Docker)**:
+   - Este repositório já inclui [render.yaml](file:///j:/deploy/pluckhub/render.yaml) e [Dockerfile](file:///j:/deploy/pluckhub/Dockerfile), então o Render pode construir e subir via Docker automaticamente.
 
 ### 3. Configurar Variáveis de Ambiente
 
@@ -56,15 +55,15 @@ No painel do Render, configure as seguintes variáveis de ambiente:
 #### Observações Importantes:
 - **MongoDB Apenas**: A aplicação em produção usa APENAS MongoDB (sem PostgreSQL)
 - **Python 3.13**: Configuração otimizada para compatibilidade com Python 3.13 no Render
-- **Sem psycopg2**: Removido para evitar conflitos de compilação no ambiente Render
+- **Sem psycopg2**: Evita conflitos de compilação no ambiente Render
 
 ```bash
 # Flask (OBRIGATÓRIO)
 FLASK_ENV=production
-SECRET_KEY=ART34KALL675OIP5IU
+SECRET_KEY=<gere-uma-chave-forte>
 
 # MongoDB (OBRIGATÓRIO - URI deve incluir o nome do banco)
-MONGO_URI=mongodb+srv://arthurkall_db_user:S8x9xKx0pgpqsIQ4@cluster0.wjr3t0h.mongodb.net/almox_sms?retryWrites=true&w=majority
+MONGO_URI=mongodb+srv://<user>:<pass>@cluster0.xxxxx.mongodb.net/almox_sms?retryWrites=true&w=majority
 MONGO_DB=almox_sms
 ```
 

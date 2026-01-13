@@ -5,18 +5,27 @@ import { PackagePlus, Save, ArrowLeft, Wand2, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { apiUrl } from '@/lib/api';
+import { useAuth } from '@/context/AuthContext';
 
 interface Categoria {
   id: string;
   nome: string;
 }
 
+interface Central {
+  id: string;
+  nome: string;
+}
+
 export default function NovoProdutoPage() {
   const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(false);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
+  const [centrais, setCentrais] = useState<Central[]>([]);
   
   const [formData, setFormData] = useState({
+    central_id: '',
     nome: '',
     codigo: '',
     categoria_id: '',
@@ -31,6 +40,25 @@ export default function NovoProdutoPage() {
       .then(data => setCategorias(data))
       .catch(err => console.error(err));
   }, []);
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user) return;
+
+    fetch(apiUrl('/api/centrais'), { headers: { 'X-User-Id': user.id } })
+      .then(async (res) => (res.ok ? res.json() : []))
+      .then((data: Central[]) => {
+        setCentrais(data);
+        if (user.role === 'admin_central' && user.scope_id) {
+          setFormData(prev => ({ ...prev, central_id: user.scope_id || '' }));
+          return;
+        }
+        if (data.length === 1) {
+          setFormData(prev => ({ ...prev, central_id: data[0]?.id || '' }));
+        }
+      })
+      .catch(err => console.error(err));
+  }, [authLoading, user]);
 
   const gerarCodigo = async () => {
     try {
@@ -52,9 +80,13 @@ export default function NovoProdutoPage() {
     e.preventDefault();
     setLoading(true);
     try {
+      if (!formData.central_id) {
+        alert('Selecione a central');
+        return;
+      }
       const res = await fetch(apiUrl('/api/produtos'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(user ? { 'X-User-Id': user.id } : {}) },
         body: JSON.stringify(formData)
       });
       const data = await res.json();
@@ -91,6 +123,23 @@ export default function NovoProdutoPage() {
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Central */}
+            <div className="col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Central</label>
+              <select
+                required
+                className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                value={formData.central_id}
+                onChange={e => setFormData({ ...formData, central_id: e.target.value })}
+                disabled={user?.role === 'admin_central'}
+              >
+                <option value="">Selecione...</option>
+                {centrais.map(c => (
+                  <option key={c.id} value={c.id}>{c.nome}</option>
+                ))}
+              </select>
+            </div>
+
             {/* Nome */}
             <div className="col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">Nome do Produto</label>

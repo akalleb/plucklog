@@ -12,10 +12,6 @@ load_dotenv(dotenv_path=PROJECT_ROOT / '.env')
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
     
-    # Configuração de banco de dados RELACIONAL (mantido apenas para compatibilidade)
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'sqlite:///almox_sms.db'
-    SQLALCHEMY_TRACK_MODIFICATIONS = False
-    
     # Configuração de banco de dados MongoDB (persistência oficial)
     MONGO_URI = os.environ.get('MONGO_URI') or 'mongodb://localhost:27017/almox_sms'
     MONGO_DB = os.environ.get('MONGO_DB') or 'almox_sms'
@@ -38,13 +34,9 @@ class Config:
 
 class DevelopmentConfig(Config):
     DEBUG = True
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DEV_DATABASE_URL') or 'sqlite:///almox_sms_dev.db'
 
 class ProductionConfig(Config):
     DEBUG = False
-    # Em produção, use PostgreSQL ou outro banco robusto
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
-        'postgresql://username:password@localhost/almox_sms'
     
     # Configurações de segurança para produção
     SESSION_COOKIE_SECURE = True  # Requer HTTPS
@@ -52,7 +44,6 @@ class ProductionConfig(Config):
 
 class TestingConfig(Config):
     TESTING = True
-    SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
 
 config = {
     'development': DevelopmentConfig,

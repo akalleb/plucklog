@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, ArrowLeftRight, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { Loading } from '@/components/ui/Page';
+import { apiUrl } from '@/lib/api';
 
 type EstoqueItem = { produto_id: string; produto_nome: string; produto_codigo: string; quantidade_disponivel: number };
 type SetorInfo = { id: string; nome: string };
@@ -15,6 +16,8 @@ export default function SetorConsumoPage() {
   const [setor, setSetor] = useState<SetorInfo | null>(null);
   const [items, setItems] = useState<EstoqueItem[]>([]);
   const [produtoId, setProdutoId] = useState('');
+  const [produtoQuery, setProdutoQuery] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [quantidade, setQuantidade] = useState('');
   const [observacoes, setObservacoes] = useState('');
   const [loading, setLoading] = useState(true);
@@ -23,12 +26,24 @@ export default function SetorConsumoPage() {
   const [success, setSuccess] = useState('');
 
   const selected = useMemo(() => items.find(i => i.produto_id === produtoId) || null, [items, produtoId]);
+  const suggestions = useMemo(() => {
+    const q = (produtoQuery || '').trim().toLowerCase();
+    const base = items.filter(i => (i.quantidade_disponivel || 0) > 0);
+    if (!q) return base.slice(0, 12);
+    return base
+      .filter(i => {
+        const nome = (i.produto_nome || '').toLowerCase();
+        const codigo = (i.produto_codigo || '').toLowerCase();
+        return nome.includes(q) || codigo.includes(q);
+      })
+      .slice(0, 12);
+  }, [items, produtoQuery]);
 
   const refresh = async (u: { id: string; scope_id: string }) => {
     const headers = { 'X-User-Id': u.id };
     const [s, est] = await Promise.all([
-      fetch(`http://localhost:8000/api/setores/${encodeURIComponent(u.scope_id)}`, { headers }).then(r => (r.ok ? r.json() : null)),
-      fetch(`http://localhost:8000/api/estoque/setor/${encodeURIComponent(u.scope_id)}`, { headers }).then(r => (r.ok ? r.json() : { items: [] })),
+      fetch(apiUrl(`/api/setores/${encodeURIComponent(u.scope_id)}`), { headers }).then(r => (r.ok ? r.json() : null)),
+      fetch(apiUrl(`/api/estoque/setor/${encodeURIComponent(u.scope_id)}`), { headers }).then(r => (r.ok ? r.json() : { items: [] })),
     ]);
     if (!s) throw new Error('Setor não encontrado');
     setSetor(s);
@@ -53,6 +68,12 @@ export default function SetorConsumoPage() {
       .finally(() => setLoading(false));
   }, [authLoading, user, router]);
 
+  useEffect(() => {
+    if (!produtoId) return;
+    if (!selected) return;
+    setProdutoQuery(`${selected.produto_nome} (${selected.produto_codigo})`);
+  }, [produtoId, selected]);
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -74,7 +95,7 @@ export default function SetorConsumoPage() {
     }
     setSending(true);
     try {
-      const res = await fetch('http://localhost:8000/api/movimentacoes/consumo', {
+      const res = await fetch(apiUrl('/api/movimentacoes/consumo'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-User-Id': user.id },
         body: JSON.stringify({ produto_id: produtoId, quantidade: q, observacoes: observacoes || undefined }),
@@ -129,20 +150,48 @@ export default function SetorConsumoPage() {
           <form onSubmit={submit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Produto</label>
-              <select
-                value={produtoId}
-                onChange={e => setProdutoId(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none bg-white"
-              >
-                <option value="">Selecione...</option>
-                {items
-                  .filter(i => (i.quantidade_disponivel || 0) > 0)
-                  .map(i => (
-                    <option key={i.produto_id} value={i.produto_id}>
-                      {i.produto_nome} ({i.produto_codigo}) - {Number(i.quantidade_disponivel || 0).toFixed(2)}
-                    </option>
-                  ))}
-              </select>
+              <div className="relative">
+                <input
+                  value={produtoQuery}
+                  onChange={e => {
+                    setProdutoQuery(e.target.value);
+                    setProdutoId('');
+                    setShowSuggestions(true);
+                  }}
+                  onFocus={() => setShowSuggestions(true)}
+                  onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none bg-white"
+                  placeholder="Buscar por nome ou código..."
+                />
+                {showSuggestions && (
+                  <div className="absolute z-10 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg max-h-64 overflow-auto">
+                    {suggestions.length === 0 ? (
+                      <div className="px-3 py-2 text-sm text-gray-500">Nenhum produto encontrado.</div>
+                    ) : (
+                      suggestions.map(i => (
+                        <button
+                          key={i.produto_id}
+                          type="button"
+                          className="w-full text-left px-3 py-2 hover:bg-gray-50"
+                          onMouseDown={e => e.preventDefault()}
+                          onClick={() => {
+                            setProdutoId(i.produto_id);
+                            setProdutoQuery(`${i.produto_nome} (${i.produto_codigo})`);
+                            setShowSuggestions(false);
+                          }}
+                        >
+                          <div className="text-sm text-gray-900">
+                            {i.produto_nome} <span className="text-gray-500">({i.produto_codigo})</span>
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            Disponível: {Number(i.quantidade_disponivel || 0).toFixed(2)}
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
               {items.length === 0 && <div className="text-xs text-gray-500 mt-1">Nenhum produto disponível no setor.</div>}
             </div>
 
@@ -186,4 +235,3 @@ export default function SetorConsumoPage() {
     </div>
   );
 }
-

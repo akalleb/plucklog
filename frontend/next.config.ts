@@ -16,25 +16,35 @@ const nextConfig: NextConfig = {
     return config;
   },
   async rewrites() {
-    const backendHostport = process.env.ALMOX_FASTAPI_HOSTPORT || "";
-    if (!backendHostport) return [];
+    const raw =
+      process.env.ALMOX_FASTAPI_HOSTPORT ||
+      process.env.NEXT_PUBLIC_API_BASE_URL ||
+      process.env.NEXT_PUBLIC_API_URL ||
+      "";
+
+    const destBase = (() => {
+      const base = String(raw || "").trim();
+      if (!base) return "http://localhost:8000";
+      if (/^https?:\/\//i.test(base)) return base.replace(/\/+$/, "");
+      return `http://${base.replace(/\/+$/, "")}`;
+    })();
 
     return [
       {
         source: "/api/:path*",
-        destination: `http://${backendHostport}/api/:path*`,
+        destination: `${destBase}/api/:path*`,
       },
       {
         source: "/docs",
-        destination: `http://${backendHostport}/docs`,
+        destination: `${destBase}/docs`,
       },
       {
         source: "/openapi.json",
-        destination: `http://${backendHostport}/openapi.json`,
+        destination: `${destBase}/openapi.json`,
       },
       {
         source: "/redoc",
-        destination: `http://${backendHostport}/redoc`,
+        destination: `${destBase}/redoc`,
       },
     ];
   },

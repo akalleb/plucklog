@@ -58,7 +58,9 @@ export default function MovimentacoesPage() {
 
   // Formatar data
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('pt-BR', {
+    const normalized =
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?$/.test(dateStr) ? `${dateStr}Z` : dateStr;
+    return new Date(normalized).toLocaleString('pt-BR', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',

@@ -5067,6 +5067,127 @@ def api_estoque_hierarquia():
         if or_clauses:
             query['$or'] = or_clauses
 
+        try:
+            level = getattr(current_user, 'nivel_acesso', None)
+            if level not in ('super_admin', 'secretario'):
+                def _id_values(raw_ids):
+                    out = []
+                    seen = set()
+                    for raw in (raw_ids or []):
+                        if raw is None:
+                            continue
+                        s = str(raw)
+                        candidates = [s]
+                        if s.isdigit():
+                            candidates.append(int(s))
+                        try:
+                            candidates.append(ObjectId(s))
+                        except Exception:
+                            pass
+                        for c in candidates:
+                            k = str(c)
+                            if k in seen:
+                                continue
+                            seen.add(k)
+                            out.append(c)
+                    return out
+
+                def _find_one(coll_name, raw_id):
+                    if extensions.mongo_db is None:
+                        return None
+                    coll = extensions.mongo_db[coll_name]
+                    s = str(raw_id)
+                    ors = [{'id': s}, {'_id': s}]
+                    if s.isdigit():
+                        ors.append({'id': int(s)})
+                    try:
+                        ors.append({'_id': ObjectId(s)})
+                    except Exception:
+                        pass
+                    return coll.find_one({'$or': ors})
+
+                central_seed = getattr(current_user, 'central_id', None)
+                almox_seed = getattr(current_user, 'almoxarifado_id', None)
+                sub_seed = getattr(current_user, 'sub_almoxarifado_id', None)
+                setor_seed = getattr(current_user, 'setor_id', None)
+
+                if level == 'admin_central' and central_seed is None:
+                    return jsonify({'items': [], 'pagination': {'page': 1, 'per_page': 0, 'pages': 1, 'total': 0}})
+
+                if level == 'gerente_almox' and almox_seed is None:
+                    return jsonify({'items': [], 'pagination': {'page': 1, 'per_page': 0, 'pages': 1, 'total': 0}})
+
+                if level == 'resp_sub_almox' and sub_seed is None:
+                    return jsonify({'items': [], 'pagination': {'page': 1, 'per_page': 0, 'pages': 1, 'total': 0}})
+
+                if level == 'operador_setor' and setor_seed is None:
+                    return jsonify({'items': [], 'pagination': {'page': 1, 'per_page': 0, 'pages': 1, 'total': 0}})
+
+                if central_seed is None:
+                    if level == 'gerente_almox' and almox_seed is not None:
+                        a = _find_one('almoxarifados', almox_seed)
+                        central_seed = (a or {}).get('central_id')
+                    elif level == 'resp_sub_almox' and sub_seed is not None:
+                        sdoc = _find_one('sub_almoxarifados', sub_seed)
+                        a = _find_one('almoxarifados', (sdoc or {}).get('almoxarifado_id'))
+                        central_seed = (a or {}).get('central_id')
+                    elif level == 'operador_setor' and setor_seed is not None:
+                        se = _find_one('setores', setor_seed)
+                        sdoc = _find_one('sub_almoxarifados', (se or {}).get('sub_almoxarifado_id'))
+                        a = _find_one('almoxarifados', (sdoc or {}).get('almoxarifado_id'))
+                        central_seed = (a or {}).get('central_id')
+
+                allowed_central_vals = []
+                if central_seed is not None:
+                    cdoc = _find_one('centrais', central_seed)
+                    if cdoc:
+                        allowed_central_vals = _id_values([cdoc.get('_id'), cdoc.get('id'), central_seed])
+                    else:
+                        allowed_central_vals = _id_values([central_seed])
+
+                allowed_almox_vals = []
+                allowed_sub_vals = []
+                allowed_setor_vals = []
+
+                if level == 'admin_central':
+                    if not allowed_central_vals:
+                        return jsonify({'items': [], 'pagination': {'page': 1, 'per_page': 0, 'pages': 1, 'total': 0}})
+                    almox_docs = list(extensions.mongo_db['almoxarifados'].find({'central_id': {'$in': allowed_central_vals}}, {'_id': 1, 'id': 1}))
+                    allowed_almox_vals = _id_values([x.get('_id') for x in almox_docs] + [x.get('id') for x in almox_docs])
+                elif level == 'gerente_almox':
+                    allowed_almox_vals = _id_values([almox_seed])
+                elif level == 'resp_sub_almox':
+                    allowed_sub_vals = _id_values([sub_seed])
+                elif level == 'operador_setor':
+                    allowed_setor_vals = _id_values([setor_seed])
+
+                if level in ('admin_central', 'gerente_almox') and allowed_almox_vals:
+                    sub_docs = list(extensions.mongo_db['sub_almoxarifados'].find({'almoxarifado_id': {'$in': allowed_almox_vals}}, {'_id': 1, 'id': 1}))
+                    allowed_sub_vals = _id_values(list(allowed_sub_vals) + [x.get('_id') for x in sub_docs] + [x.get('id') for x in sub_docs])
+
+                if level in ('admin_central', 'gerente_almox', 'resp_sub_almox') and allowed_sub_vals:
+                    setor_q = {'$or': [{'sub_almoxarifado_id': {'$in': allowed_sub_vals}}, {'sub_almoxarifado_ids': {'$in': allowed_sub_vals}}]}
+                    setor_docs = list(extensions.mongo_db['setores'].find(setor_q, {'_id': 1, 'id': 1}))
+                    allowed_setor_vals = _id_values(list(allowed_setor_vals) + [x.get('_id') for x in setor_docs] + [x.get('id') for x in setor_docs])
+
+                scope_ors = []
+                if allowed_central_vals:
+                    scope_ors += [{'central_id': {'$in': allowed_central_vals}}, {'local_tipo': 'central', 'local_id': {'$in': allowed_central_vals}}]
+                if allowed_almox_vals:
+                    scope_ors += [{'almoxarifado_id': {'$in': allowed_almox_vals}}, {'local_tipo': 'almoxarifado', 'local_id': {'$in': allowed_almox_vals}}]
+                if allowed_sub_vals:
+                    scope_ors += [{'sub_almoxarifado_id': {'$in': allowed_sub_vals}}, {'local_tipo': {'$in': ['subalmoxarifado', 'sub_almoxarifado']}, 'local_id': {'$in': allowed_sub_vals}}]
+                if allowed_setor_vals:
+                    scope_ors += [{'setor_id': {'$in': allowed_setor_vals}}, {'local_tipo': 'setor', 'local_id': {'$in': allowed_setor_vals}}]
+
+                if not scope_ors:
+                    return jsonify({'items': [], 'pagination': {'page': 1, 'per_page': 0, 'pages': 1, 'total': 0}})
+
+                scope_filter = {'$or': scope_ors}
+                query = {'$and': [query, scope_filter]} if query else scope_filter
+        except Exception:
+            return jsonify({'items': [], 'pagination': {'page': 1, 'per_page': 0, 'pages': 1, 'total': 0}})
+
         base_total = coll.count_documents(query)
         projection = {
             'produto_id': 1, 'setor_id': 1, 'sub_almoxarifado_id': 1,
@@ -5357,6 +5478,127 @@ def api_estoque_hierarquia_export():
             
         if or_clauses:
             query['$or'] = or_clauses
+
+        try:
+            level = getattr(current_user, 'nivel_acesso', None)
+            if level not in ('super_admin', 'secretario'):
+                def _id_values(raw_ids):
+                    out = []
+                    seen = set()
+                    for raw in (raw_ids or []):
+                        if raw is None:
+                            continue
+                        s = str(raw)
+                        candidates = [s]
+                        if s.isdigit():
+                            candidates.append(int(s))
+                        try:
+                            candidates.append(ObjectId(s))
+                        except Exception:
+                            pass
+                        for c in candidates:
+                            k = str(c)
+                            if k in seen:
+                                continue
+                            seen.add(k)
+                            out.append(c)
+                    return out
+
+                def _find_one(coll_name, raw_id):
+                    if extensions.mongo_db is None:
+                        return None
+                    coll = extensions.mongo_db[coll_name]
+                    s = str(raw_id)
+                    ors = [{'id': s}, {'_id': s}]
+                    if s.isdigit():
+                        ors.append({'id': int(s)})
+                    try:
+                        ors.append({'_id': ObjectId(s)})
+                    except Exception:
+                        pass
+                    return coll.find_one({'$or': ors})
+
+                central_seed = getattr(current_user, 'central_id', None)
+                almox_seed = getattr(current_user, 'almoxarifado_id', None)
+                sub_seed = getattr(current_user, 'sub_almoxarifado_id', None)
+                setor_seed = getattr(current_user, 'setor_id', None)
+
+                if level == 'admin_central' and central_seed is None:
+                    return "Sem escopo de central", 403
+
+                if level == 'gerente_almox' and almox_seed is None:
+                    return "Sem escopo de almoxarifado", 403
+
+                if level == 'resp_sub_almox' and sub_seed is None:
+                    return "Sem escopo de sub-almoxarifado", 403
+
+                if level == 'operador_setor' and setor_seed is None:
+                    return "Sem escopo de setor", 403
+
+                if central_seed is None:
+                    if level == 'gerente_almox' and almox_seed is not None:
+                        a = _find_one('almoxarifados', almox_seed)
+                        central_seed = (a or {}).get('central_id')
+                    elif level == 'resp_sub_almox' and sub_seed is not None:
+                        sdoc = _find_one('sub_almoxarifados', sub_seed)
+                        a = _find_one('almoxarifados', (sdoc or {}).get('almoxarifado_id'))
+                        central_seed = (a or {}).get('central_id')
+                    elif level == 'operador_setor' and setor_seed is not None:
+                        se = _find_one('setores', setor_seed)
+                        sdoc = _find_one('sub_almoxarifados', (se or {}).get('sub_almoxarifado_id'))
+                        a = _find_one('almoxarifados', (sdoc or {}).get('almoxarifado_id'))
+                        central_seed = (a or {}).get('central_id')
+
+                allowed_central_vals = []
+                if central_seed is not None:
+                    cdoc = _find_one('centrais', central_seed)
+                    if cdoc:
+                        allowed_central_vals = _id_values([cdoc.get('_id'), cdoc.get('id'), central_seed])
+                    else:
+                        allowed_central_vals = _id_values([central_seed])
+
+                allowed_almox_vals = []
+                allowed_sub_vals = []
+                allowed_setor_vals = []
+
+                if level == 'admin_central':
+                    if not allowed_central_vals:
+                        return "Sem escopo de central", 403
+                    almox_docs = list(extensions.mongo_db['almoxarifados'].find({'central_id': {'$in': allowed_central_vals}}, {'_id': 1, 'id': 1}))
+                    allowed_almox_vals = _id_values([x.get('_id') for x in almox_docs] + [x.get('id') for x in almox_docs])
+                elif level == 'gerente_almox':
+                    allowed_almox_vals = _id_values([almox_seed])
+                elif level == 'resp_sub_almox':
+                    allowed_sub_vals = _id_values([sub_seed])
+                elif level == 'operador_setor':
+                    allowed_setor_vals = _id_values([setor_seed])
+
+                if level in ('admin_central', 'gerente_almox') and allowed_almox_vals:
+                    sub_docs = list(extensions.mongo_db['sub_almoxarifados'].find({'almoxarifado_id': {'$in': allowed_almox_vals}}, {'_id': 1, 'id': 1}))
+                    allowed_sub_vals = _id_values(list(allowed_sub_vals) + [x.get('_id') for x in sub_docs] + [x.get('id') for x in sub_docs])
+
+                if level in ('admin_central', 'gerente_almox', 'resp_sub_almox') and allowed_sub_vals:
+                    setor_q = {'$or': [{'sub_almoxarifado_id': {'$in': allowed_sub_vals}}, {'sub_almoxarifado_ids': {'$in': allowed_sub_vals}}]}
+                    setor_docs = list(extensions.mongo_db['setores'].find(setor_q, {'_id': 1, 'id': 1}))
+                    allowed_setor_vals = _id_values(list(allowed_setor_vals) + [x.get('_id') for x in setor_docs] + [x.get('id') for x in setor_docs])
+
+                scope_ors = []
+                if allowed_central_vals:
+                    scope_ors += [{'central_id': {'$in': allowed_central_vals}}, {'local_tipo': 'central', 'local_id': {'$in': allowed_central_vals}}]
+                if allowed_almox_vals:
+                    scope_ors += [{'almoxarifado_id': {'$in': allowed_almox_vals}}, {'local_tipo': 'almoxarifado', 'local_id': {'$in': allowed_almox_vals}}]
+                if allowed_sub_vals:
+                    scope_ors += [{'sub_almoxarifado_id': {'$in': allowed_sub_vals}}, {'local_tipo': {'$in': ['subalmoxarifado', 'sub_almoxarifado']}, 'local_id': {'$in': allowed_sub_vals}}]
+                if allowed_setor_vals:
+                    scope_ors += [{'setor_id': {'$in': allowed_setor_vals}}, {'local_tipo': 'setor', 'local_id': {'$in': allowed_setor_vals}}]
+
+                if not scope_ors:
+                    return "Sem itens no escopo", 200
+
+                scope_filter = {'$or': scope_ors}
+                query = {'$and': [query, scope_filter]} if query else scope_filter
+        except Exception:
+            return "Erro ao aplicar escopo", 500
 
         # Busca sem paginação
         cursor = coll.find(query).sort('updated_at', -1)

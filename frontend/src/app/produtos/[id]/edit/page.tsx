@@ -5,6 +5,7 @@ import { Package, Save, ArrowLeft, Loader2, Trash2 } from 'lucide-react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Loading } from '@/components/ui/Page';
+import { useAuth } from '@/context/AuthContext';
 import { apiUrl } from '@/lib/api';
 
 interface Categoria {
@@ -25,6 +26,7 @@ export default function EditarProdutoPage() {
   const router = useRouter();
   const params = useParams();
   const id = params.id as string;
+  const { user, loading: authLoading } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -41,8 +43,11 @@ export default function EditarProdutoPage() {
   });
 
   useEffect(() => {
+    if (authLoading) return;
+    if (!user) return;
+    const headers = { 'X-User-Id': user.id };
     Promise.all([
-      fetch(apiUrl(`/api/produtos/${id}`)).then(res => res.json()),
+      fetch(apiUrl(`/api/produtos/${id}`), { headers }).then(res => res.json()),
       fetch(apiUrl('/api/categorias')).then(res => res.json())
     ]).then(([prod, cats]) => {
       const produto = prod as ProdutoResponse;
@@ -63,15 +68,16 @@ export default function EditarProdutoPage() {
       console.error(err);
       alert('Erro ao carregar dados');
     });
-  }, [id]);
+  }, [authLoading, id, user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) return;
     setSaving(true);
     try {
       const res = await fetch(apiUrl(`/api/produtos/${id}`), {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-User-Id': user.id },
         body: JSON.stringify(formData)
       });
       
@@ -90,9 +96,10 @@ export default function EditarProdutoPage() {
 
   const handleDelete = async () => {
     if (!confirm('Tem certeza absoluta que deseja excluir este produto? Esta ação não pode ser desfeita.')) return;
+    if (!user) return;
     
     try {
-      const res = await fetch(apiUrl(`/api/produtos/${id}`), { method: 'DELETE' });
+      const res = await fetch(apiUrl(`/api/produtos/${id}`), { method: 'DELETE', headers: { 'X-User-Id': user.id } });
       if (res.ok) {
         router.push('/');
       } else {

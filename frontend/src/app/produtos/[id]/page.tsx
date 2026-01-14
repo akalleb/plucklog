@@ -48,9 +48,30 @@ export default function ProdutoDetalhesPage() {
   const [savingLote, setSavingLote] = useState(false);
   const [editingLote, setEditingLote] = useState<{ id: string; numero: string; validade: string; quantidade: string } | null>(null);
 
+  const formatDate = (value?: string | null) => {
+    if (!value) return '-';
+    const normalized =
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?$/.test(value) ? `${value}Z` : value;
+    return new Date(normalized).toLocaleDateString('pt-BR');
+  };
+
+  const formatDateTime = (value?: string | null) => {
+    if (!value) return '-';
+    const normalized =
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?$/.test(value) ? `${value}Z` : value;
+    return new Date(normalized).toLocaleString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
   useEffect(() => {
-    if (params.id) {
-      fetch(apiUrl(`/api/produtos/${params.id}`))
+    if (!params.id) return;
+    if (!user) return;
+    fetch(apiUrl(`/api/produtos/${params.id}`), { headers: { 'X-User-Id': user.id } })
         .then(res => {
           if (!res.ok) throw new Error('Produto não encontrado');
           return res.json();
@@ -58,8 +79,7 @@ export default function ProdutoDetalhesPage() {
         .then(data => setProduto(data))
         .catch(err => console.error(err))
         .finally(() => setLoading(false));
-    }
-  }, [params.id]);
+  }, [params.id, user]);
 
   const openEditLote = (lote: { id: string; numero: string; validade?: string | null; quantidade?: number }) => {
     const validade = lote.validade ? new Date(lote.validade).toISOString().slice(0, 10) : '';
@@ -96,7 +116,7 @@ export default function ProdutoDetalhesPage() {
       if (!res.ok) throw new Error(data.detail || 'Erro ao salvar lote');
 
       if (params.id) {
-        const refreshed = await fetch(apiUrl(`/api/produtos/${params.id}`)).then(r => r.json());
+        const refreshed = await fetch(apiUrl(`/api/produtos/${params.id}`), { headers: { 'X-User-Id': user.id } }).then(r => r.json());
         setProduto(refreshed);
       }
       setShowModal(false);
@@ -191,10 +211,10 @@ export default function ProdutoDetalhesPage() {
                       <Activity className="h-3 w-3" />
                    </div>
                    <div className="flex-1">
-                     <div className="flex justify-between">
-                       <span className="text-sm font-medium text-gray-900 capitalize">{hist.tipo}</span>
-                       <span className="text-xs text-gray-500">{new Date(hist.data).toLocaleDateString('pt-BR')}</span>
-                     </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm font-medium text-gray-900 capitalize">{hist.tipo}</span>
+                      <span className="text-xs text-gray-500">{formatDateTime(hist.data)}</span>
+                    </div>
                      <p className="text-xs text-gray-600 mt-0.5">
                        {hist.origem} &rarr; {hist.destino}
                      </p>
@@ -232,7 +252,7 @@ export default function ProdutoDetalhesPage() {
                   {produto.lotes.map((lote, idx) => (
                     <tr key={idx} className="hover:bg-gray-50">
                       <td className="px-4 py-2 font-medium text-gray-900">{lote.numero}</td>
-                      <td className="px-4 py-2 text-gray-600">{lote.validade ? new Date(lote.validade).toLocaleDateString('pt-BR') : '-'}</td>
+                      <td className="px-4 py-2 text-gray-600">{formatDate(lote.validade)}</td>
                       <td className="px-4 py-2 text-gray-900">{lote.quantidade}</td>
                       <td className="px-4 py-2">
                         <span className={`px-2 py-0.5 rounded text-xs font-medium ${

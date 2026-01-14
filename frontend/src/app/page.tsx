@@ -46,9 +46,15 @@ export default function Dashboard() {
 
   // Função para buscar dados do Backend FastAPI
   const fetchData = useCallback(async () => {
+    if (!user?.id) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
-      const res = await fetch(apiUrl(`/api/estoque/hierarquia?page=${page}&per_page=10&produto=${searchTerm}`));
+      const res = await fetch(apiUrl(`/api/estoque/hierarquia?page=${page}&per_page=10&produto=${searchTerm}`), {
+        headers: { 'X-User-Id': user.id }
+      });
       if (!res.ok) throw new Error('Falha ao buscar dados');
       const json = await res.json();
       setData(json);
@@ -57,19 +63,23 @@ export default function Dashboard() {
     } finally {
       setLoading(false);
     }
-  }, [page, searchTerm, toast]);
+  }, [page, searchTerm, toast, user?.id]);
 
   useEffect(() => {
     if (authLoading) return;
+    if (!user?.id) {
+      router.replace('/login');
+      return;
+    }
     if (user?.role === 'operador_setor') {
       router.replace('/setor');
       return;
     }
-    fetch(apiUrl('/api/dashboard/stats'))
+    fetch(apiUrl('/api/dashboard/stats'), { headers: { 'X-User-Id': user.id } })
       .then(res => res.json())
       .then(data => setStats(data))
       .catch(() => toast.error('Falha ao carregar estatísticas', 'Dashboard'));
-  }, [authLoading, user, router, toast]);
+  }, [authLoading, user?.id, user?.role, router, toast]);
 
   // Recarregar quando página ou busca mudam
   useEffect(() => {

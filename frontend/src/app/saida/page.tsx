@@ -29,11 +29,9 @@ export default function SaidaPage() {
     if (authLoading) return;
     if (!user) return;
     const headers = { 'X-User-Id': user.id };
-    const includeAll = ['super_admin', 'admin_central', 'gerente_almox', 'resp_sub_almox'].includes(user.role);
-    const qs = includeAll ? '?include_all=1' : '';
     Promise.all([
-      fetch(apiUrl(`/api/centrais${qs}`), { headers }).then(r => (r.ok ? r.json() : [])),
-      fetch(apiUrl(`/api/setores${qs}`), { headers }).then(r => (r.ok ? r.json() : [])),
+      fetch(apiUrl('/api/centrais'), { headers }).then(r => (r.ok ? r.json() : [])),
+      fetch(apiUrl('/api/setores'), { headers }).then(r => (r.ok ? r.json() : [])),
     ])
       .then(([c, sets]) => {
         setCentrais(c);
@@ -45,10 +43,20 @@ export default function SaidaPage() {
   const centralNameById = useMemo(() => new Map(centrais.map(c => [c.id, c.nome])), [centrais]);
 
   const grupos = useMemo(() => {
+    const allowedCentralIds = user?.role === 'super_admin' ? null : new Set(centrais.map(c => String(c.id)));
+    const scopedSetores =
+      !allowedCentralIds
+        ? setores
+        : setores.filter(s => {
+            const cid = s.central_id ? String(s.central_id) : '';
+            if (!cid) return false;
+            return allowedCentralIds.has(cid);
+          });
+
     const q = query.trim().toLowerCase();
     const view = !q
-      ? setores
-      : setores.filter(s => {
+      ? scopedSetores
+      : scopedSetores.filter(s => {
           const nome = (s.nome || '').toLowerCase();
           const cid = s.central_id ? String(s.central_id) : '';
           const cNome = (centralNameById.get(cid) || cid || '-').toLowerCase();
@@ -77,7 +85,7 @@ export default function SaidaPage() {
     });
 
     return out;
-  }, [centralNameById, query, setores]);
+  }, [centralNameById, centrais, query, setores, user?.role]);
 
   if (!user) return null;
   if (loading) {
@@ -143,4 +151,3 @@ export default function SaidaPage() {
     </Page>
   );
 }
-

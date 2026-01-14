@@ -49,6 +49,13 @@ export default function DemandasPage() {
   const [status, setStatus] = useState<StatusFilter>('pendente');
   const [demandas, setDemandas] = useState<DemandaResumo[]>([]);
 
+  const formatDateTime = (value?: string | null) => {
+    if (!value) return '';
+    const normalized =
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?$/.test(value) ? `${value}Z` : value;
+    return new Date(normalized).toLocaleString('pt-BR');
+  };
+
   const refresh = async (uid: string, selectedStatus: string) => {
     const headers = { 'X-User-Id': uid };
     const qs = new URLSearchParams({ per_page: '50', page: '1' });
@@ -190,7 +197,7 @@ export default function DemandasPage() {
 
                     <div className="mt-4 flex items-center justify-between gap-3">
                       <div className="text-xs text-gray-500">
-                        {d.updated_at ? `Atualizado: ${new Date(d.updated_at).toLocaleString('pt-BR')}` : d.created_at ? `Criado: ${new Date(d.created_at).toLocaleString('pt-BR')}` : ''}
+                        {d.updated_at ? `Atualizado: ${formatDateTime(d.updated_at)}` : d.created_at ? `Criado: ${formatDateTime(d.created_at)}` : ''}
                       </div>
                       <div className="flex items-center gap-2">
                         <button

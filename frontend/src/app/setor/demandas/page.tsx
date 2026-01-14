@@ -14,6 +14,12 @@ type Demanda = { id: string; status: string; created_at?: string | null; items: 
 type CartItem = { produto_id: string; produto_nome: string; produto_codigo: string; quantidade: string; observacao: string };
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
+const formatDateTime = (value?: string | null) => {
+  if (!value) return '';
+  const normalized =
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?$/.test(value) ? `${value}Z` : value;
+  return new Date(normalized).toLocaleString('pt-BR');
+};
 
 export default function SetorDemandasPage() {
   const router = useRouter();
@@ -348,7 +354,7 @@ export default function SetorDemandasPage() {
                     <div className="font-semibold text-gray-900">#{d.id.slice(0, 8)}</div>
                     <div className="text-xs text-gray-600 capitalize">{d.status}</div>
                   </div>
-                  <div className="text-xs text-gray-500 mt-1">{d.created_at ? new Date(d.created_at).toLocaleString('pt-BR') : ''}</div>
+                  <div className="text-xs text-gray-500 mt-1">{d.created_at ? formatDateTime(d.created_at) : ''}</div>
                   <div className="mt-3 space-y-2">
                     {(d.items || []).slice(0, 5).map((it, idx) => (
                       <div key={`${d.id}:${idx}`} className="text-sm text-gray-800 flex items-center justify-between gap-2">

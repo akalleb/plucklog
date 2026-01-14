@@ -38,6 +38,22 @@ export default function RelatoriosPage() {
 
   const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
+  const formatChartDate = (value: string) => {
+    const v = String(value || '');
+    if (/^\d{4}-\d{2}-\d{2}$/.test(v)) {
+      return new Date(`${v}T00:00:00`).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    }
+    return new Date(v).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+  };
+
+  const formatChartDateLabel = (value: string) => {
+    const v = String(value || '');
+    if (/^\d{4}-\d{2}-\d{2}$/.test(v)) {
+      return new Date(`${v}T00:00:00`).toLocaleDateString('pt-BR');
+    }
+    return new Date(v).toLocaleDateString('pt-BR');
+  };
+
   return (
     <div className="p-8 max-w-6xl mx-auto">
       <div className="mb-8">
@@ -138,11 +154,11 @@ export default function RelatoriosPage() {
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={movData}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
-                  <XAxis dataKey="date" tickFormatter={(str) => new Date(str).toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit'})} fontSize={12} tickLine={false} axisLine={false} />
+                  <XAxis dataKey="date" tickFormatter={formatChartDate} fontSize={12} tickLine={false} axisLine={false} />
                   <YAxis fontSize={12} tickLine={false} axisLine={false} />
                   <RechartsTooltip 
                     contentStyle={{ backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #eee' }}
-                    labelFormatter={(label) => new Date(label).toLocaleDateString('pt-BR')}
+                    labelFormatter={formatChartDateLabel}
                   />
                   <Legend />
                   <Line type="monotone" dataKey="entrada" name="Entradas" stroke="#10b981" strokeWidth={2} dot={false} />

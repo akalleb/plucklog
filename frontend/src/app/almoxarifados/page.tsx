@@ -20,6 +20,7 @@ interface Almoxarifado {
   endereco?: string;
   tipo: 'almoxarifado';
   central_id?: string;
+  can_receive_inter_central?: boolean;
 }
 
 interface SubAlmoxarifado {
@@ -28,6 +29,7 @@ interface SubAlmoxarifado {
   descricao?: string;
   tipo: 'sub_almoxarifado';
   almoxarifado_id?: string;
+  can_receive_inter_central?: boolean;
 }
 
 interface Setor {
@@ -40,6 +42,7 @@ interface Setor {
   sub_almoxarifado_ids?: string[];
   almoxarifado_id?: string;
   tipo: 'setor';
+  can_receive_inter_central?: boolean;
 }
 
 type TreeItem = Central | Almoxarifado | SubAlmoxarifado | Setor;
@@ -220,7 +223,8 @@ export default function AlmoxarifadosPage() {
     tipo: 'almoxarifado',
     parent_ref: '',
     setor_almoxarifado_id: '',
-    setor_sub_almoxarifado_ids: [] as string[]
+    setor_sub_almoxarifado_ids: [] as string[],
+    can_receive_inter_central: false
   });
 
   useEffect(() => {
@@ -281,6 +285,7 @@ export default function AlmoxarifadosPage() {
     const descricao = 'descricao' in item ? item.descricao ?? '' : '';
     const responsavel = 'responsavel' in item ? item.responsavel ?? '' : '';
     const email = 'email' in item ? item.email ?? '' : '';
+    const canReceive = 'can_receive_inter_central' in item ? Boolean(item.can_receive_inter_central) : false;
 
     setFormData({ 
       nome: item.nome, 
@@ -291,7 +296,8 @@ export default function AlmoxarifadosPage() {
       tipo: item.tipo,
       parent_ref: parentRef,
       setor_almoxarifado_id: setorAlmoxId,
-      setor_sub_almoxarifado_ids: setorSubs
+      setor_sub_almoxarifado_ids: setorSubs,
+      can_receive_inter_central: canReceive
     });
     setEditingId(item.id);
     setShowModal(true);
@@ -353,6 +359,9 @@ export default function AlmoxarifadosPage() {
           payload.almoxarifado_id = formData.setor_almoxarifado_id;
           payload.sub_almoxarifado_ids = formData.setor_sub_almoxarifado_ids.length ? formData.setor_sub_almoxarifado_ids : undefined;
       }
+      if (formData.tipo !== 'central') {
+        payload.can_receive_inter_central = formData.can_receive_inter_central;
+      }
 
       const res = await fetch(url, {
         method: method,
@@ -383,7 +392,8 @@ export default function AlmoxarifadosPage() {
       tipo: 'almoxarifado',
       parent_ref: '',
       setor_almoxarifado_id: '',
-      setor_sub_almoxarifado_ids: []
+      setor_sub_almoxarifado_ids: [],
+      can_receive_inter_central: false
     });
     setEditingId(null);
   };
@@ -463,7 +473,8 @@ export default function AlmoxarifadosPage() {
                       tipo: e.target.value,
                       parent_ref: '',
                       setor_almoxarifado_id: '',
-                      setor_sub_almoxarifado_ids: []
+                      setor_sub_almoxarifado_ids: [],
+                      can_receive_inter_central: false
                     })}
                     disabled={!!editingId} // Não mudar tipo na edição para simplificar
                   >
@@ -598,6 +609,17 @@ export default function AlmoxarifadosPage() {
                     />
                   </div>
                 </>
+              )}
+
+              {formData.tipo !== 'central' && (
+                <label className="flex items-center gap-2 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={formData.can_receive_inter_central}
+                    onChange={() => setFormData({ ...formData, can_receive_inter_central: !formData.can_receive_inter_central })}
+                  />
+                  <span>Receber de Outra Central</span>
+                </label>
               )}
 
               <div className="flex justify-end gap-2 pt-4">

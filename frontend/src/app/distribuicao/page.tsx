@@ -87,12 +87,12 @@ export default function DistribuicaoPage() {
     if (!user) return;
     const headers = { 'X-User-Id': user.id };
     const includeAll = ['super_admin', 'admin_central', 'gerente_almox', 'resp_sub_almox'].includes(user.role);
-    const qs = includeAll ? '?include_all=1' : '';
+    const qsCentrais = includeAll ? '?include_all=1' : '';
     Promise.all([
-      fetch(apiUrl(`/api/centrais${qs}`), { headers }).then(r => (r.ok ? r.json() : [])),
-      fetch(apiUrl(`/api/almoxarifados${qs}`), { headers }).then(r => (r.ok ? r.json() : [])),
-      fetch(apiUrl(`/api/sub_almoxarifados${qs}`), { headers }).then(r => (r.ok ? r.json() : [])),
-      fetch(apiUrl(`/api/setores${qs}`), { headers }).then(r => (r.ok ? r.json() : [])),
+      fetch(apiUrl(`/api/centrais${qsCentrais}`), { headers }).then(r => (r.ok ? r.json() : [])),
+      fetch(apiUrl('/api/almoxarifados'), { headers }).then(r => (r.ok ? r.json() : [])),
+      fetch(apiUrl('/api/sub_almoxarifados'), { headers }).then(r => (r.ok ? r.json() : [])),
+      fetch(apiUrl('/api/setores'), { headers }).then(r => (r.ok ? r.json() : [])),
     ]).then(([c, a, s, sets]) => {
       setCentrais(c);
       setAlmoxarifados(a);
@@ -137,11 +137,12 @@ export default function DistribuicaoPage() {
       setProdutoDetalhes(null);
       return;
     }
-    fetch(apiUrl(`/api/produtos/${encodeURIComponent(produtoSelected.id)}`))
+    if (!user) return;
+    fetch(apiUrl(`/api/produtos/${encodeURIComponent(produtoSelected.id)}`), { headers: { 'X-User-Id': user.id } })
       .then(async r => (r.ok ? r.json() : null))
       .then((data: ProdutoDetalhes | null) => setProdutoDetalhes(data))
       .catch(() => setProdutoDetalhes(null));
-  }, [produtoSelected]);
+  }, [produtoSelected, user]);
 
   const evidencias = useMemo(() => {
     const items = produtoDetalhes?.estoque_locais || [];

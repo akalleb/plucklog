@@ -36,6 +36,13 @@ const isRecord = (value: unknown): value is Record<string, unknown> => typeof va
 const parseOrigemTipo = (value: unknown): OrigemDisp['origem_tipo'] | null =>
   value === 'almoxarifado' || value === 'sub_almoxarifado' ? value : null;
 
+const formatDateTime = (value?: string | null) => {
+  if (!value) return '-';
+  const normalized =
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?$/.test(value) ? `${value}Z` : value;
+  return new Date(normalized).toLocaleString('pt-BR');
+};
+
 export default function DemandaDetalhePage({ params }: { params: Promise<{ id: string }> }) {
   const { id: demandaId } = use(params);
   const router = useRouter();
@@ -485,11 +492,11 @@ export default function DemandaDetalhePage({ params }: { params: Promise<{ id: s
                 </div>
                 <div className="rounded-lg bg-gray-50 p-3">
                   <div className="text-xs text-gray-500">Criado em</div>
-                  <div className="font-semibold text-gray-900">{demanda.created_at ? new Date(demanda.created_at).toLocaleString('pt-BR') : '-'}</div>
+                  <div className="font-semibold text-gray-900">{formatDateTime(demanda.created_at)}</div>
                 </div>
                 <div className="rounded-lg bg-gray-50 p-3">
                   <div className="text-xs text-gray-500">Atualizado em</div>
-                  <div className="font-semibold text-gray-900">{demanda.updated_at ? new Date(demanda.updated_at).toLocaleString('pt-BR') : '-'}</div>
+                  <div className="font-semibold text-gray-900">{formatDateTime(demanda.updated_at)}</div>
                 </div>
               </div>
 
@@ -783,7 +790,7 @@ export default function DemandaDetalhePage({ params }: { params: Promise<{ id: s
                     <div key={`${idx}:${a.created_at || ''}`} className="rounded-xl border border-gray-200 p-4">
                       <div className="flex items-center justify-between gap-3">
                         <div className="text-sm font-semibold text-gray-900">
-                          {a.created_at ? new Date(a.created_at).toLocaleString('pt-BR') : 'Atendimento'}
+                          {a.created_at ? formatDateTime(a.created_at) : 'Atendimento'}
                         </div>
                         <div className="text-xs text-gray-600">
                           Origem: {a.origem_tipo || '-'} {a.origem_id ? `(${a.origem_id})` : ''}

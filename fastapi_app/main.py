@@ -7,7 +7,7 @@ import os
 import math
 import mongomock
 from pydantic import BaseModel, Field
-from datetime import datetime
+from datetime import datetime, timezone
 from dotenv import load_dotenv
 from pymongo.errors import DuplicateKeyError
 
@@ -141,7 +141,7 @@ async def _ensure_super_admin() -> None:
         "scope_id": None,
         "categoria_ids": None,
         "password_hash": generate_password_hash(password),
-        "created_at": datetime.now(),
+        "created_at": datetime.now(timezone.utc),
         "ativo": True,
     }
 
@@ -154,6 +154,46 @@ def _norm_id(value: Any) -> Optional[str]:
     if value is None:
         return None
     return str(value)
+
+def _now_utc() -> datetime:
+    return datetime.now(timezone.utc)
+
+def _dt_to_utc_iso(value: Any) -> Optional[str]:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        dt = value
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        else:
+            dt = dt.astimezone(timezone.utc)
+        out = dt.isoformat()
+        if out.endswith("+00:00"):
+            out = out[:-6] + "Z"
+        return out
+    if isinstance(value, str):
+        return value
+    return str(value)
+
+def _is_expired(validade: Any, now: Optional[datetime] = None) -> bool:
+    if not validade:
+        return False
+    if now is None:
+        now = _now_utc()
+    try:
+        if isinstance(validade, datetime):
+            vdt = validade
+            if vdt.tzinfo is None:
+                vdt = vdt.replace(tzinfo=timezone.utc)
+            else:
+                vdt = vdt.astimezone(timezone.utc)
+            return vdt < now
+        vdate = getattr(validade, "date", None)
+        if callable(vdate):
+            return vdate() < now.date()
+        return str(validade) < now.date().isoformat()
+    except Exception:
+        return False
 
 def _public_id(doc: Optional[Dict[str, Any]]) -> Optional[str]:
     if not doc:
@@ -285,6 +325,16 @@ async def startup_db_client():
         print("Usando banco mock em memória (mongomock)")
 
     await _ensure_super_admin()
+    setor_nome = "ALMOX - Hospital Municipal de Angicos"
+    try:
+        existing = await db.db.setores.find_one({"nome": setor_nome})
+        if existing:
+            await db.db.setores.update_one(
+                {"_id": existing["_id"]},
+                {"$set": {"can_receive_inter_central": True}},
+            )
+    except Exception:
+        pass
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
@@ -371,6 +421,23 @@ class ProdutoDetalhes(BaseModel):
     historico_recente: List[Dict[str, Any]]
     lotes: List[Dict[str, Any]] = []
 
+async def _allowed_central_ids_for_user(user: Dict[str, Any]) -> List[Any]:
+    role = (user.get("role") or "").strip()
+    scope_id = _norm_id(user.get("scope_id"))
+    if role not in ("admin_central", "gerente_almox", "resp_sub_almox"):
+        return []
+    central_id = await _compute_user_central_id(role, scope_id, None, strict=False)
+    values: List[Any] = []
+    for v in [central_id, scope_id]:
+        if not v:
+            continue
+        values.append(v)
+        if str(v).isdigit():
+            values.append(int(str(v)))
+        if ObjectId.is_valid(str(v)):
+            values.append(ObjectId(str(v)))
+    return list(dict.fromkeys(values))
+
 class LoteUpdate(BaseModel):
     numero_lote: Optional[str] = None
     data_validade: Optional[datetime] = None
@@ -383,6 +450,7 @@ async def search_produtos(
     user: Dict[str, Any] = Depends(get_current_user),
 ):
     q = q.strip()
+    role = user.get("role")
     ors: List[Dict[str, Any]] = [
         {"nome": {"$regex": q, "$options": "i"}},
         {"codigo": {"$regex": q, "$options": "i"}},
@@ -392,7 +460,13 @@ async def search_produtos(
         ors.append({"id": q})
     if ObjectId.is_valid(q):
         ors.append({"_id": ObjectId(q)})
-    cursor = db.db.produtos.find({"$or": ors}, {"nome": 1, "codigo": 1, "unidade_medida": 1, "categoria": 1, "id": 1}).limit(limit)
+    base_query: Dict[str, Any] = {"$or": ors}
+    if role in ("admin_central", "gerente_almox", "resp_sub_almox"):
+        allowed = await _allowed_central_ids_for_user(user)
+        if not allowed:
+            return []
+        base_query = {"$and": [base_query, {"central_id": {"$in": allowed}}]}
+    cursor = db.db.produtos.find(base_query, {"nome": 1, "codigo": 1, "unidade_medida": 1, "categoria": 1, "id": 1}).limit(limit)
     docs = await cursor.to_list(length=limit)
     results = []
     for p in docs:
@@ -408,7 +482,7 @@ async def search_produtos(
 
 # --- Rota de Detalhes do Produto ---
 @app.get("/api/produtos/{produto_id}", response_model=ProdutoDetalhes)
-async def get_produto_detalhes(produto_id: str):
+async def get_produto_detalhes(produto_id: str, user: Dict[str, Any] = Depends(get_current_user)):
     # 1. Buscar Produto
     q = {}
     if ObjectId.is_valid(produto_id):
@@ -418,6 +492,13 @@ async def get_produto_detalhes(produto_id: str):
     else:
         # Suportar busca por ID string (legado/importado)
         q = {"$or": [{"id": produto_id}, {"codigo": produto_id}]}
+
+    role = user.get("role")
+    if role in ("admin_central", "gerente_almox", "resp_sub_almox"):
+        allowed = await _allowed_central_ids_for_user(user)
+        if not allowed:
+            raise HTTPException(status_code=404, detail="Produto não encontrado")
+        q = {"$and": [q, {"central_id": {"$in": allowed}}]}
         
     produto = await db.db.produtos.find_one(q)
     if not produto:
@@ -511,7 +592,7 @@ async def get_produto_detalhes(produto_id: str):
             "local_tipo": l_tipo,
             "quantidade": qtd,
             "quantidade_disponivel": disp,
-            "updated_at": e.get("updated_at") or e.get("created_at") or datetime.now()
+            "updated_at": _dt_to_utc_iso(e.get("updated_at") or e.get("created_at") or _now_utc())
         })
         
     # 3. Buscar Histórico Recente
@@ -520,9 +601,9 @@ async def get_produto_detalhes(produto_id: str):
     hist_formatado = []
     
     for h in historico:
-        dt = h.get("data_movimentacao") or h.get("created_at") or datetime.now()
+        dt = h.get("data_movimentacao") or h.get("created_at") or _now_utc()
         hist_formatado.append({
-            "data": dt,
+            "data": _dt_to_utc_iso(dt),
             "tipo": h.get("tipo"),
             "quantidade": float(h.get("quantidade", 0)),
             "origem": h.get("origem_nome", "-"),
@@ -535,12 +616,13 @@ async def get_produto_detalhes(produto_id: str):
         lotes_cursor = db.db.lotes.find({"produto_id": pid}).sort("updated_at", -1).limit(50)
         lotes_docs = await lotes_cursor.to_list(length=20)
         for l in lotes_docs:
+            validade = l.get("data_validade")
             lotes_list.append({
                 "id": _public_id(l) or str(l.get("_id")),
                 "numero": l.get("numero_lote"),
-                "validade": l.get("data_validade"),
+                "validade": _dt_to_utc_iso(validade),
                 "quantidade": l.get("quantidade_atual"),
-                "status": "Vencido" if l.get("data_validade") and l.get("data_validade") < datetime.now() else "Ok"
+                "status": "Vencido" if _is_expired(validade) else "Ok"
             })
     except Exception:
         pass # Coleção pode não existir ainda
@@ -590,7 +672,7 @@ async def update_lote(lote_id: str, item: LoteUpdate, user: Dict[str, Any] = Dep
     if not changed:
         raise HTTPException(status_code=400, detail="Nada para atualizar")
 
-    update_data["updated_at"] = datetime.now()
+    update_data["updated_at"] = _now_utc()
 
     if not update_data:
         raise HTTPException(status_code=400, detail="Nada para atualizar")
@@ -604,7 +686,7 @@ async def update_lote(lote_id: str, item: LoteUpdate, user: Dict[str, Any] = Dep
     return {"status": "success", "message": "Lote atualizado"}
 
 @app.get("/api/dashboard/stats")
-async def get_dashboard_stats():
+async def get_dashboard_stats(user: Dict[str, Any] = Depends(get_current_user)):
     try:
         if db.db is None:
             return {
@@ -614,9 +696,87 @@ async def get_dashboard_stats():
                 "status_sistema": "Offline",
             }
 
-        total_produtos = await db.db.produtos.count_documents({})
-        baixo_estoque = await db.db.estoques.count_documents({"quantidade_disponivel": {"$lt": 10}})
-        locais_count = await db.db.almoxarifados.count_documents({}) + await db.db.setores.count_documents({})
+        role = user.get("role")
+        scope_id = user.get("scope_id")
+
+        if role not in ("super_admin", "admin_central", "gerente_almox", "resp_sub_almox"):
+            raise HTTPException(status_code=403, detail="Acesso negado")
+
+        def _id_values(ids: List[Any]) -> List[Any]:
+            out: List[Any] = []
+            for raw in ids:
+                if raw is None:
+                    continue
+                s = str(raw)
+                out.append(s)
+                if s.isdigit():
+                    out.append(int(s))
+                if ObjectId.is_valid(s):
+                    out.append(ObjectId(s))
+            return list(dict.fromkeys(out))
+
+        allowed_central = await _allowed_central_ids_for_user(user) if role != "super_admin" else []
+
+        allowed_almox: List[Any] = []
+        allowed_sub: List[Any] = []
+
+        if role == "super_admin":
+            pass
+        elif role == "admin_central" and scope_id:
+            if not allowed_central:
+                return {"total_produtos": 0, "baixo_estoque": 0, "locais_ativos": 0, "status_sistema": "Online"}
+            almox_docs = await db.db.almoxarifados.find({"central_id": {"$in": allowed_central}}, {"id": 1, "_id": 1}).to_list(length=5000)
+            allowed_almox = [_public_id(a) or str(a.get("_id")) for a in almox_docs if a]
+            if allowed_almox:
+                subs = await db.db.sub_almoxarifados.find({"almoxarifado_id": {"$in": _id_values(allowed_almox)}}, {"id": 1, "_id": 1}).to_list(length=10000)
+                allowed_sub = [_public_id(s) or str(s.get("_id")) for s in subs if s]
+        elif role == "gerente_almox" and scope_id:
+            allowed_almox = [scope_id]
+            subs = await db.db.sub_almoxarifados.find({"almoxarifado_id": {"$in": _id_values([scope_id])}}, {"id": 1, "_id": 1}).to_list(length=10000)
+            allowed_sub = [_public_id(s) or str(s.get("_id")) for s in subs if s]
+        elif role == "resp_sub_almox" and scope_id:
+            allowed_sub = [scope_id]
+        else:
+            return {"total_produtos": 0, "baixo_estoque": 0, "locais_ativos": 0, "status_sistema": "Online"}
+
+        total_prod_query: Dict[str, Any] = {}
+        if role != "super_admin":
+            if not allowed_central:
+                return {"total_produtos": 0, "baixo_estoque": 0, "locais_ativos": 0, "status_sistema": "Online"}
+            total_prod_query = {"central_id": {"$in": allowed_central}}
+        total_produtos = await db.db.produtos.count_documents(total_prod_query)
+
+        estoque_ors: List[Dict[str, Any]] = []
+        if role == "super_admin":
+            estoque_query = {"quantidade_disponivel": {"$lt": 10}}
+        else:
+            almox_vals = _id_values(allowed_almox)
+            sub_vals = _id_values(allowed_sub)
+            cent_vals = _id_values(allowed_central)
+            if almox_vals:
+                estoque_ors += [{"almoxarifado_id": {"$in": almox_vals}}, {"local_tipo": "almoxarifado", "local_id": {"$in": almox_vals}}]
+            if sub_vals:
+                estoque_ors += [{"sub_almoxarifado_id": {"$in": sub_vals}}, {"local_tipo": "sub_almoxarifado", "local_id": {"$in": sub_vals}}]
+            if cent_vals:
+                estoque_ors += [{"central_id": {"$in": cent_vals}}, {"local_tipo": "central", "local_id": {"$in": cent_vals}}]
+            if not estoque_ors:
+                return {"total_produtos": total_produtos, "baixo_estoque": 0, "locais_ativos": 0, "status_sistema": "Online"}
+            estoque_query = {"$and": [{"quantidade_disponivel": {"$lt": 10}}, {"$or": estoque_ors}]}
+        baixo_estoque = await db.db.estoques.count_documents(estoque_query)
+
+        if role == "super_admin":
+            locais_count = await db.db.almoxarifados.count_documents({}) + await db.db.setores.count_documents({})
+        else:
+            almox_vals = _id_values(allowed_almox)
+            sub_vals = _id_values(allowed_sub)
+            almox_count = await db.db.almoxarifados.count_documents({"$or": [{"id": {"$in": almox_vals}}, {"_id": {"$in": [v for v in almox_vals if isinstance(v, ObjectId)]}}]}) if almox_vals else 0
+            setor_q_ors: List[Dict[str, Any]] = []
+            if almox_vals:
+                setor_q_ors.append({"almoxarifado_id": {"$in": almox_vals}})
+            if sub_vals:
+                setor_q_ors += [{"sub_almoxarifado_id": {"$in": sub_vals}}, {"sub_almoxarifado_ids": {"$in": sub_vals}}]
+            setores_count = await db.db.setores.count_documents({"$or": setor_q_ors}) if setor_q_ors else 0
+            locais_count = int(almox_count) + int(setores_count)
 
         return {
             "total_produtos": total_produtos,
@@ -624,6 +784,8 @@ async def get_dashboard_stats():
             "locais_ativos": locais_count,
             "status_sistema": "Online",
         }
+    except HTTPException:
+        raise
     except Exception:
         return {
             "total_produtos": 0,
@@ -700,14 +862,14 @@ async def get_movimentacoes(
         p = prod_map.get(pid, {})
         
         # Data
-        dt = m.get("data_movimentacao") or m.get("created_at") or datetime.now()
+        dt = m.get("data_movimentacao") or m.get("created_at") or _now_utc()
         
         results.append({
             "id": str(m.get("_id")),
             "produto_nome": p.get("nome", "Produto Removido"),
             "tipo": m.get("tipo", "outros"),
             "quantidade": float(m.get("quantidade", 0)),
-            "data": dt,
+            "data": _dt_to_utc_iso(dt),
             "origem": m.get("origem_nome", "-"),
             "destino": m.get("destino_nome", "-"),
             "usuario": m.get("usuario_responsavel"),
@@ -731,7 +893,8 @@ async def get_estoque_hierarquia(
     produto: Optional[str] = None,
     tipo: Optional[str] = None,
     local: Optional[str] = None,
-    status: Optional[str] = None
+    status: Optional[str] = None,
+    user: Dict[str, Any] = Depends(get_current_user),
 ):
     """
     Versão FastAPI assíncrona da rota de estoque.
@@ -742,44 +905,110 @@ async def get_estoque_hierarquia(
     if db.db is None:
         return {"items": [], "pagination": {"total": 0, "page": page, "pages": 1}}
     
-    # Construção de Filtros
-    query = {}
+    role = user.get("role")
+    scope_id = user.get("scope_id")
+
+    if role not in ("super_admin", "admin_central", "gerente_almox", "resp_sub_almox"):
+        raise HTTPException(status_code=403, detail="Acesso negado")
+
+    if role != "super_admin" and not scope_id:
+        return {"items": [], "pagination": {"total": 0, "page": page, "pages": 1}}
+
+    def _id_values(ids: List[Any]) -> List[Any]:
+        out: List[Any] = []
+        for raw in ids:
+            if raw is None:
+                continue
+            s = str(raw)
+            out.append(s)
+            if s.isdigit():
+                out.append(int(s))
+            if ObjectId.is_valid(s):
+                out.append(ObjectId(s))
+        return list(dict.fromkeys(out))
+
+    allowed_central = await _allowed_central_ids_for_user(user) if role != "super_admin" else []
+
+    allowed_almox: List[Any] = []
+    allowed_sub: List[Any] = []
+
+    if role == "super_admin":
+        pass
+    elif role == "resp_sub_almox" and scope_id:
+        allowed_sub = [scope_id]
+    elif role == "gerente_almox" and scope_id:
+        allowed_almox = [scope_id]
+        subs = await db.db.sub_almoxarifados.find({"almoxarifado_id": {"$in": _id_values([scope_id])}}, {"id": 1, "_id": 1}).to_list(length=10000)
+        allowed_sub = [_public_id(s) or str(s.get("_id")) for s in subs if s]
+    elif role == "admin_central" and scope_id:
+        if not allowed_central:
+            return {"items": [], "pagination": {"total": 0, "page": page, "pages": 1}}
+        almox_docs = await db.db.almoxarifados.find({"central_id": {"$in": allowed_central}}, {"id": 1, "_id": 1}).to_list(length=5000)
+        allowed_almox = [_public_id(a) or str(a.get("_id")) for a in almox_docs if a]
+        if allowed_almox:
+            subs = await db.db.sub_almoxarifados.find({"almoxarifado_id": {"$in": _id_values(allowed_almox)}}, {"id": 1, "_id": 1}).to_list(length=10000)
+            allowed_sub = [_public_id(s) or str(s.get("_id")) for s in subs if s]
+    else:
+        return {"items": [], "pagination": {"total": 0, "page": page, "pages": 1}}
+
+    base_query: Dict[str, Any] = {}
     if produto:
         # Busca texto ou ID
-        prod_query = {"$or": [
+        prod_query: Dict[str, Any] = {"$or": [
             {"nome": {"$regex": produto, "$options": "i"}},
             {"codigo": {"$regex": produto, "$options": "i"}}
         ]}
         # Tenta ObjectId
         if ObjectId.is_valid(produto):
             prod_query["$or"].append({"_id": ObjectId(produto)})
-        
+
         # Buscar IDs de produtos primeiro (Async)
+        if role != "super_admin":
+            if not allowed_central:
+                return {"items": [], "pagination": {"total": 0, "page": page, "pages": 1}}
+            prod_query = {"$and": [prod_query, {"central_id": {"$in": allowed_central}}]}
         prods = await db.db.produtos.find(prod_query, {"_id": 1, "id": 1}).to_list(length=100)
         p_ids = []
         for p in prods:
             p_ids.append(p.get("_id"))
             p_ids.append(str(p.get("_id")))
             if p.get("id"): p_ids.append(p.get("id"))
-        
+
         if p_ids:
-            query["produto_id"] = {"$in": p_ids}
+            base_query["produto_id"] = {"$in": p_ids}
         else:
             return {"items": [], "pagination": {"total": 0, "page": page, "pages": 1}}
 
     # Filtros de Local
     if tipo:
         norm_tipo = tipo.lower().replace("-", "").replace("_", "")
-        if "setor" in norm_tipo: query["setor_id"] = {"$exists": True}
-        elif "almox" in norm_tipo: query["almoxarifado_id"] = {"$exists": True}
-        elif "central" in norm_tipo: query["central_id"] = {"$exists": True}
+        if "setor" in norm_tipo: base_query["setor_id"] = {"$exists": True}
+        elif "almox" in norm_tipo: base_query["almoxarifado_id"] = {"$exists": True}
+        elif "central" in norm_tipo: base_query["central_id"] = {"$exists": True}
 
     if local:
-        query["$or"] = [
+        base_query["$or"] = [
             {"local_id": local},
             {"almoxarifado_id": local},
             {"setor_id": local}
         ]
+
+    query: Dict[str, Any] = base_query
+    if role != "super_admin":
+        scope_ors: List[Dict[str, Any]] = []
+        almox_vals = _id_values(allowed_almox)
+        sub_vals = _id_values(allowed_sub)
+        cent_vals = _id_values(allowed_central)
+        if almox_vals:
+            scope_ors += [{"almoxarifado_id": {"$in": almox_vals}}, {"local_tipo": "almoxarifado", "local_id": {"$in": almox_vals}}]
+        if sub_vals:
+            scope_ors += [{"sub_almoxarifado_id": {"$in": sub_vals}}, {"local_tipo": "sub_almoxarifado", "local_id": {"$in": sub_vals}}]
+        if cent_vals:
+            scope_ors += [{"central_id": {"$in": cent_vals}}, {"local_tipo": "central", "local_id": {"$in": cent_vals}}]
+        if not scope_ors:
+            return {"items": [], "pagination": {"total": 0, "page": page, "pages": 1}}
+        scope_filter: Dict[str, Any] = {"$or": scope_ors}
+        query = {"$and": [base_query, scope_filter]} if base_query else scope_filter
 
     # Contagem total (Async)
     total = await db.db.estoques.count_documents(query)
@@ -1402,7 +1631,7 @@ async def post_entrada(req: EntradaRequest, user: Dict[str, Any] = Depends(get_c
     else:
         raise HTTPException(status_code=400, detail="Tipo de destino inválido")
 
-    now = datetime.now()
+    now = _now_utc()
 
     # 3. Atualizar Estoque (Upsert)
     estoque_filter = {
@@ -1524,6 +1753,7 @@ class SetorItem(BaseModel):
     sub_almoxarifado_id: Optional[str] = None # Vínculo com Sub-Almoxarifado
     sub_almoxarifado_ids: Optional[List[str]] = None # Vínculo múltiplo com Sub-Almoxarifados
     central_id: Optional[str] = None
+    can_receive_inter_central: Optional[bool] = None
 
 class CentralItem(BaseModel):
     id: Optional[str] = None
@@ -1538,12 +1768,14 @@ class AlmoxarifadoItem(BaseModel):
     tipo: Optional[str] = "almoxarifado"
     parent_id: Optional[str] = None
     central_id: Optional[str] = None # Vínculo com Central
+    can_receive_inter_central: Optional[bool] = None
 
 class SubAlmoxarifadoItem(BaseModel):
     id: Optional[str] = None
     nome: str
     descricao: Optional[str] = None
     almoxarifado_id: Optional[str] = None
+    can_receive_inter_central: Optional[bool] = None
 
 # --- Rotas de Cadastros Básicos ---
 
@@ -1582,22 +1814,27 @@ async def get_sub_almoxarifados(
     for s in subs:
         sub_id = _public_id(s) or str(s.get("_id"))
         almox_id = _norm_id(s.get("almoxarifado_id"))
-        if allowed_sub_ids is not None and sub_id not in allowed_sub_ids:
-            continue
-        if allowed_almox_ids is not None and almox_id not in allowed_almox_ids:
-            continue
+        is_inter = bool(s.get("can_receive_inter_central", False)) and role != "operador_setor"
+        if not is_inter:
+            if allowed_sub_ids is not None and sub_id not in allowed_sub_ids:
+                continue
+            if allowed_almox_ids is not None and almox_id not in allowed_almox_ids:
+                continue
         results.append({
             "id": sub_id,
             "nome": s.get("nome"),
             "descricao": s.get("descricao"),
-            "almoxarifado_id": _norm_id(s.get("almoxarifado_id"))
+            "almoxarifado_id": _norm_id(s.get("almoxarifado_id")),
+            "can_receive_inter_central": bool(s.get("can_receive_inter_central", False)),
         })
     return results
 
 @app.post("/api/sub_almoxarifados")
 async def create_sub_almoxarifado(item: SubAlmoxarifadoItem, user: Dict[str, Any] = Depends(_require_roles(["admin_central", "gerente_almox"]))):
     doc = item.dict(exclude={"id"})
-    doc["created_at"] = datetime.now()
+    if doc.get("can_receive_inter_central") is None:
+        doc["can_receive_inter_central"] = False
+    doc["created_at"] = _now_utc()
     doc["ativo"] = True
     
     # Validar almoxarifado pai
@@ -1696,7 +1933,7 @@ async def get_categorias():
 @app.post("/api/categorias")
 async def create_categoria(cat: CategoriaItem):
     doc = cat.dict(exclude={"id"})
-    doc["created_at"] = datetime.now()
+    doc["created_at"] = _now_utc()
     res = await db.db.categorias.insert_one(doc)
     return {"id": str(res.inserted_id), **doc}
 
@@ -1764,14 +2001,16 @@ async def get_setores(
         if not setor_subs:
             single_sub = _norm_id(s.get("sub_almoxarifado_id"))
             setor_subs = [single_sub] if single_sub else []
-        if allowed_setor_ids is not None and setor_id not in allowed_setor_ids:
-            continue
-        if allowed_sub_ids is not None and not any(_norm_id(x) in allowed_sub_ids for x in setor_subs):
-            if allowed_almox_ids is None:
+        is_inter = bool(s.get("can_receive_inter_central", False)) and role != "operador_setor"
+        if not is_inter:
+            if allowed_setor_ids is not None and setor_id not in allowed_setor_ids:
                 continue
-        if allowed_almox_ids is not None and _norm_id(s.get("almoxarifado_id")) not in allowed_almox_ids:
-            if allowed_sub_ids is None or not any(_norm_id(x) in allowed_sub_ids for x in setor_subs):
-                continue
+            if allowed_sub_ids is not None and not any(_norm_id(x) in allowed_sub_ids for x in setor_subs):
+                if allowed_almox_ids is None:
+                    continue
+            if allowed_almox_ids is not None and _norm_id(s.get("almoxarifado_id")) not in allowed_almox_ids:
+                if allowed_sub_ids is None or not any(_norm_id(x) in allowed_sub_ids for x in setor_subs):
+                    continue
         results.append({
             "id": setor_id,
             "nome": s.get("nome"),
@@ -1782,6 +2021,7 @@ async def get_setores(
             "sub_almoxarifado_id": _norm_id(s.get("sub_almoxarifado_id")),
             "sub_almoxarifado_ids": [str(x) for x in (s.get("sub_almoxarifado_ids") or []) if x] or None,
             "central_id": chain.get("central_id"),
+            "can_receive_inter_central": bool(s.get("can_receive_inter_central", False)),
         })
     return results
 
@@ -1791,6 +2031,12 @@ async def get_setor(setor_id: str, user: Dict[str, Any] = Depends(get_current_us
     if not setor:
         raise HTTPException(status_code=404, detail="Setor não encontrado")
     chain = await _resolve_parent_chain_from_setor(setor)
+    role = user.get("role")
+    scope_id = user.get("scope_id")
+    if role != "super_admin":
+        user_central_id = await _compute_user_central_id(role, scope_id, None, strict=False)
+        if user_central_id and chain.get("central_id") and _norm_id(user_central_id) != _norm_id(chain.get("central_id")):
+            raise HTTPException(status_code=403, detail="Acesso negado")
     return {
         "id": _public_id(setor) or str(setor.get("_id")),
         "nome": setor.get("nome"),
@@ -1801,18 +2047,21 @@ async def get_setor(setor_id: str, user: Dict[str, Any] = Depends(get_current_us
         "sub_almoxarifado_id": chain.get("sub_almoxarifado_id") or _norm_id(setor.get("sub_almoxarifado_id")),
         "sub_almoxarifado_ids": [str(x) for x in (setor.get("sub_almoxarifado_ids") or []) if x] or None,
         "central_id": chain.get("central_id"),
+        "can_receive_inter_central": bool(setor.get("can_receive_inter_central", False)),
     }
 
 @app.post("/api/setores")
 async def create_setor(item: SetorItem, user: Dict[str, Any] = Depends(_require_roles(["admin_central", "gerente_almox", "resp_sub_almox"]))):
     links = await _infer_setor_links(item)
     doc = item.dict(exclude={"id", "central_id"})
+    if doc.get("can_receive_inter_central") is None:
+        doc["can_receive_inter_central"] = False
     doc["almoxarifado_id"] = links.get("almoxarifado_id")
     doc["sub_almoxarifado_id"] = links.get("sub_almoxarifado_id")
     doc["sub_almoxarifado_ids"] = links.get("sub_almoxarifado_ids")
     if links.get("parent_id"):
         doc["parent_id"] = links.get("parent_id")
-    doc["created_at"] = datetime.now()
+    doc["created_at"] = _now_utc()
 
     role = user.get("role")
     scope_id = user.get("scope_id")
@@ -1942,9 +2191,12 @@ async def get_centrais(
             else:
                 allowed_central_ids = set()
     results = []
+    allowed_norm: Optional[set[str]] = None
+    if allowed_central_ids is not None:
+        allowed_norm = {_norm_id(x) for x in allowed_central_ids if _norm_id(x)}
     for c in centrais:
         cid = _public_id(c) or str(c.get("_id"))
-        if allowed_central_ids is not None and cid not in allowed_central_ids:
+        if allowed_norm is not None and _norm_id(cid) not in allowed_norm:
             continue
         results.append({
             "id": cid,
@@ -1957,7 +2209,7 @@ async def get_centrais(
 @app.post("/api/centrais")
 async def create_central(item: CentralItem, user: Dict[str, Any] = Depends(_require_roles(["super_admin"]))):
     doc = item.dict(exclude={"id"})
-    doc["created_at"] = datetime.now()
+    doc["created_at"] = _now_utc()
     res = await db.db.centrais.insert_one(doc)
     return {"id": str(res.inserted_id), **doc}
 
@@ -2025,17 +2277,20 @@ async def get_almoxarifados(
     results = []
     for a in alms:
         almox_id = _public_id(a) or str(a.get("_id"))
-        if allowed_almox_ids is not None and almox_id not in allowed_almox_ids:
-            continue
-        if allowed_central_ids is not None and _norm_id(a.get("central_id")) not in allowed_central_ids:
-            continue
+        is_inter = bool(a.get("can_receive_inter_central", False)) and role != "operador_setor"
+        if not is_inter:
+            if allowed_almox_ids is not None and almox_id not in allowed_almox_ids:
+                continue
+            if allowed_central_ids is not None and _norm_id(a.get("central_id")) not in allowed_central_ids:
+                continue
         results.append({
             "id": almox_id,
             "nome": a.get("nome"),
             "endereco": a.get("endereco"),
             "tipo": a.get("tipo", "almoxarifado"),
             "parent_id": a.get("parent_id"),
-            "central_id": _norm_id(a.get("central_id"))
+            "central_id": _norm_id(a.get("central_id")),
+            "can_receive_inter_central": bool(a.get("can_receive_inter_central", False)),
         })
     return results
 
@@ -2047,7 +2302,9 @@ async def create_almoxarifado(item: AlmoxarifadoItem, user: Dict[str, Any] = Dep
         if not item.central_id or _norm_id(item.central_id) != scope_id:
             raise HTTPException(status_code=403, detail="Acesso negado")
     doc = item.dict(exclude={"id"})
-    doc["created_at"] = datetime.now()
+    if doc.get("can_receive_inter_central") is None:
+        doc["can_receive_inter_central"] = False
+    doc["created_at"] = _now_utc()
     res = await db.db.almoxarifados.insert_one(doc)
     return {"id": str(res.inserted_id), **doc}
 
@@ -2266,7 +2523,7 @@ async def create_usuario(user: UserCreate):
     doc["username"] = (user.email or "").strip().lower()
     doc["password_hash"] = generate_password_hash(user.password)
     del doc["password"]
-    doc["created_at"] = datetime.now()
+    doc["created_at"] = _now_utc()
     doc["ativo"] = True
     doc["central_id"] = await _compute_user_central_id(doc.get("role") or "operador", doc.get("scope_id"), doc.get("central_id"), strict=True)
     
@@ -2344,20 +2601,31 @@ class CodigoRequest(BaseModel):
     categoria_id: Optional[str] = None
 
 @app.post("/api/produtos")
-async def create_produto(prod: ProdutoCreate):
+async def create_produto(prod: ProdutoCreate, user: Dict[str, Any] = Depends(get_current_user)):
+    role = user.get("role")
+    scope_id = user.get("scope_id")
+    if role not in ("super_admin", "admin_central", "gerente_almox"):
+        raise HTTPException(status_code=403, detail="Acesso negado")
+    if role != "super_admin" and not scope_id:
+        raise HTTPException(status_code=400, detail="Usuário sem escopo associado")
+
     # Validar duplicidade de código
     existing = await db.db.produtos.find_one({"codigo": prod.codigo})
     if existing:
          pid = existing.get('id') if existing.get('id') is not None else str(existing.get('_id'))
          return {"id": pid, "message": "Produto já existe", "exists": True}
     
-    central = await _find_one_by_id("centrais", prod.central_id)
+    central_id = prod.central_id
+    if role != "super_admin":
+        central_id = await _compute_user_central_id(role, scope_id, prod.central_id, strict=True)
+
+    central = await _find_one_by_id("centrais", central_id)
     if not central:
         raise HTTPException(status_code=400, detail="Central inválida")
 
     doc = prod.dict(exclude={"categoria_nome"})
-    doc["central_id"] = _public_id(central) or _norm_id(prod.central_id)
-    doc["created_at"] = datetime.now()
+    doc["central_id"] = _public_id(central) or _norm_id(central_id)
+    doc["created_at"] = _now_utc()
     doc["observacoes"] = doc.pop("observacao", None) # Padronizar
     
     # Resolver categoria
@@ -2520,6 +2788,31 @@ async def post_distribuicao(req: MovimentacaoRequest, user: Dict[str, Any] = Dep
     did_out = _public_id(destino) or req.destino_id
     destino_nome = destino.get('nome') or 'Destino'
 
+    if role != "super_admin":
+        origem_central_id: Optional[str] = None
+        if origem_tipo == "almoxarifado":
+            origem_central_id = _norm_id(origem.get("central_id"))
+        else:
+            almox_doc = almox if "almox" in locals() else None
+            if not almox_doc:
+                almox_doc = await db.db.almoxarifados.find_one(_build_id_query(origem_almox_id or ""))
+            origem_central_id = _norm_id(almox_doc.get("central_id")) if almox_doc else None
+
+        destino_central_id: Optional[str] = None
+        if destino_tipo == "almoxarifado":
+            destino_central_id = _norm_id(destino.get("central_id"))
+        elif destino_tipo == "sub_almoxarifado":
+            dest_almox_id = _norm_id(destino.get("almoxarifado_id"))
+            dest_almox = await db.db.almoxarifados.find_one(_build_id_query(dest_almox_id or ""))
+            destino_central_id = _norm_id(dest_almox.get("central_id")) if dest_almox else None
+        else:
+            chain = await _resolve_parent_chain_from_setor(destino)
+            destino_central_id = _norm_id(chain.get("central_id"))
+
+        if origem_central_id and destino_central_id and origem_central_id != destino_central_id:
+            if not bool(destino.get("can_receive_inter_central", False)):
+                raise HTTPException(status_code=403, detail="Destino não autorizado para recebimento de outra central")
+
     # 4. Verificar Saldo na Origem
     estoque_origem = await db.db.estoques.find_one({
         "produto_id": pid_out,
@@ -2531,7 +2824,7 @@ async def post_distribuicao(req: MovimentacaoRequest, user: Dict[str, Any] = Dep
     if saldo_atual < req.quantidade:
         raise HTTPException(status_code=400, detail=f"Saldo insuficiente na origem. Disponível: {saldo_atual}")
 
-    now = datetime.now()
+    now = _now_utc()
 
     # 5. Decrementar Origem
     await db.db.estoques.update_one(
@@ -2652,7 +2945,7 @@ async def post_consumo_setor(req: SetorConsumoRequest, user: Dict[str, Any] = De
     if saldo_atual < req.quantidade:
         raise HTTPException(status_code=400, detail=f"Saldo insuficiente no setor. Disponível: {saldo_atual}")
 
-    now = datetime.now()
+    now = _now_utc()
     await db.db.estoques.update_one(
         {"_id": estoque["_id"]},
         {"$inc": {"quantidade": -req.quantidade, "quantidade_disponivel": -req.quantidade}, "$set": {"updated_at": now}},
@@ -2768,8 +3061,8 @@ async def get_demandas(
             "status": d.get("status") or "pendente",
             "observacoes": d.get("observacoes"),
             "items": its,
-            "created_at": created_at.isoformat() if isinstance(created_at, datetime) else (str(created_at) if created_at else None),
-            "updated_at": updated_at.isoformat() if isinstance(updated_at, datetime) else (str(updated_at) if updated_at else None),
+            "created_at": _dt_to_utc_iso(created_at),
+            "updated_at": _dt_to_utc_iso(updated_at),
         })
 
     return {"items": items_out, "pagination": {"total": total, "page": page, "pages": pages, "per_page": per_page}}
@@ -2803,7 +3096,7 @@ async def create_demanda(req: DemandaCreateRequest, user: Dict[str, Any] = Depen
         pid_out = produto.get("id") if produto.get("id") is not None else str(produto.get("_id"))
         items_out.append({"produto_id": str(pid_out), "quantidade": float(it.quantidade), "atendido": 0.0, "observacao": it.observacao})
 
-    now = datetime.now()
+    now = _now_utc()
     doc = {
         "setor_id": sid,
         "central_id": chain.get("central_id"),
@@ -2849,6 +3142,15 @@ async def get_demanda(demanda_id: str, user: Dict[str, Any] = Depends(get_curren
 
     created_at = doc.get("created_at")
     updated_at = doc.get("updated_at")
+    atendimento_in = doc.get("atendimento") or []
+    atendimento_out = []
+    for a in atendimento_in:
+        if not isinstance(a, dict):
+            continue
+        atendimento_out.append({
+            **a,
+            "created_at": _dt_to_utc_iso(a.get("created_at")),
+        })
     return {
         "id": str(doc.get("_id")),
         "setor_id": str(doc.get("setor_id")) if doc.get("setor_id") is not None else None,
@@ -2856,9 +3158,9 @@ async def get_demanda(demanda_id: str, user: Dict[str, Any] = Depends(get_curren
         "status": doc.get("status") or "pendente",
         "observacoes": doc.get("observacoes"),
         "items": doc.get("items") or [],
-        "atendimento": doc.get("atendimento") or [],
-        "created_at": created_at.isoformat() if isinstance(created_at, datetime) else (str(created_at) if created_at else None),
-        "updated_at": updated_at.isoformat() if isinstance(updated_at, datetime) else (str(updated_at) if updated_at else None),
+        "atendimento": atendimento_out,
+        "created_at": _dt_to_utc_iso(created_at),
+        "updated_at": _dt_to_utc_iso(updated_at),
     }
 
 @app.delete("/api/demandas/{demanda_id}")
@@ -2937,7 +3239,7 @@ async def atender_demanda(demanda_id: str, req: DemandaAtenderRequest, user: Dic
     origem_id_out = _public_id(origem_doc) or req.origem_id
     origem_nome = origem_doc.get("nome") or "Origem"
 
-    now = datetime.now()
+    now = _now_utc()
 
     async def move_item(pid_out: str, quantidade: float, obs: Optional[str]):
         estoque_origem = await db.db.estoques.find_one({"produto_id": pid_out, "local_tipo": origem_tipo, "local_id": origem_id_out})

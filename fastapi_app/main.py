@@ -1782,11 +1782,15 @@ class SubAlmoxarifadoItem(BaseModel):
 @app.get("/api/sub_almoxarifados", response_model=List[SubAlmoxarifadoItem])
 async def get_sub_almoxarifados(
     include_all: bool = Query(False),
+    include_inter_central: bool = Query(False),
     user: Dict[str, Any] = Depends(get_current_user),
 ):
     subs = await db.db.sub_almoxarifados.find().to_list(length=100)
     role = user.get("role")
     scope_id = user.get("scope_id")
+
+    if include_inter_central and role not in ("super_admin", "admin_central", "gerente_almox", "resp_sub_almox"):
+        raise HTTPException(status_code=403, detail="Acesso negado")
 
     allowed_almox_ids: Optional[set[str]] = None
     allowed_sub_ids: Optional[set[str]] = None
@@ -1814,8 +1818,8 @@ async def get_sub_almoxarifados(
     for s in subs:
         sub_id = _public_id(s) or str(s.get("_id"))
         almox_id = _norm_id(s.get("almoxarifado_id"))
-        is_inter = bool(s.get("can_receive_inter_central", False)) and role != "operador_setor"
-        if not is_inter:
+        bypass_scope = bool(s.get("can_receive_inter_central", False)) and role != "operador_setor" and include_inter_central
+        if not bypass_scope:
             if allowed_sub_ids is not None and sub_id not in allowed_sub_ids:
                 continue
             if allowed_almox_ids is not None and almox_id not in allowed_almox_ids:
@@ -1966,11 +1970,15 @@ async def delete_categoria(cat_id: str):
 @app.get("/api/setores", response_model=List[SetorItem])
 async def get_setores(
     include_all: bool = Query(False),
+    include_inter_central: bool = Query(False),
     user: Dict[str, Any] = Depends(get_current_user),
 ):
     sets = await db.db.setores.find().to_list(length=100)
     role = user.get("role")
     scope_id = user.get("scope_id")
+
+    if include_inter_central and role not in ("super_admin", "admin_central", "gerente_almox", "resp_sub_almox"):
+        raise HTTPException(status_code=403, detail="Acesso negado")
 
     allowed_setor_ids: Optional[set[str]] = None
     allowed_almox_ids: Optional[set[str]] = None
@@ -2001,8 +2009,8 @@ async def get_setores(
         if not setor_subs:
             single_sub = _norm_id(s.get("sub_almoxarifado_id"))
             setor_subs = [single_sub] if single_sub else []
-        is_inter = bool(s.get("can_receive_inter_central", False)) and role != "operador_setor"
-        if not is_inter:
+        bypass_scope = bool(s.get("can_receive_inter_central", False)) and role != "operador_setor" and include_inter_central
+        if not bypass_scope:
             if allowed_setor_ids is not None and setor_id not in allowed_setor_ids:
                 continue
             if allowed_sub_ids is not None and not any(_norm_id(x) in allowed_sub_ids for x in setor_subs):
@@ -2246,11 +2254,15 @@ async def delete_central(central_id: str, user: Dict[str, Any] = Depends(_requir
 @app.get("/api/almoxarifados", response_model=List[AlmoxarifadoItem])
 async def get_almoxarifados(
     include_all: bool = Query(False),
+    include_inter_central: bool = Query(False),
     user: Dict[str, Any] = Depends(get_current_user),
 ):
     alms = await db.db.almoxarifados.find().to_list(length=100)
     role = user.get("role")
     scope_id = user.get("scope_id")
+
+    if include_inter_central and role not in ("super_admin", "admin_central", "gerente_almox", "resp_sub_almox"):
+        raise HTTPException(status_code=403, detail="Acesso negado")
 
     allowed_almox_ids: Optional[set[str]] = None
     allowed_central_ids: Optional[set[str]] = None
@@ -2277,8 +2289,8 @@ async def get_almoxarifados(
     results = []
     for a in alms:
         almox_id = _public_id(a) or str(a.get("_id"))
-        is_inter = bool(a.get("can_receive_inter_central", False)) and role != "operador_setor"
-        if not is_inter:
+        bypass_scope = bool(a.get("can_receive_inter_central", False)) and role != "operador_setor" and include_inter_central
+        if not bypass_scope:
             if allowed_almox_ids is not None and almox_id not in allowed_almox_ids:
                 continue
             if allowed_central_ids is not None and _norm_id(a.get("central_id")) not in allowed_central_ids:

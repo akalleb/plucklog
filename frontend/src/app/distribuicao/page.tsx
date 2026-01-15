@@ -72,6 +72,7 @@ export default function DistribuicaoPage() {
   const [almoxarifados, setAlmoxarifados] = useState<SimpleLocation[]>([]);
   const [subAlmoxarifados, setSubAlmoxarifados] = useState<SubAlmoxarifado[]>([]);
   const [setores, setSetores] = useState<Setor[]>([]);
+  const [includeInterCentral, setIncludeInterCentral] = useState(false);
   
   const [formData, setFormData] = useState({
     quantidade: '',
@@ -88,18 +89,31 @@ export default function DistribuicaoPage() {
     const headers = { 'X-User-Id': user.id };
     const includeAll = ['super_admin', 'admin_central', 'gerente_almox', 'resp_sub_almox'].includes(user.role);
     const qsCentrais = includeAll ? '?include_all=1' : '';
+    const qsInter = includeInterCentral ? '?include_inter_central=1' : '';
     Promise.all([
       fetch(apiUrl(`/api/centrais${qsCentrais}`), { headers }).then(r => (r.ok ? r.json() : [])),
-      fetch(apiUrl('/api/almoxarifados'), { headers }).then(r => (r.ok ? r.json() : [])),
-      fetch(apiUrl('/api/sub_almoxarifados'), { headers }).then(r => (r.ok ? r.json() : [])),
-      fetch(apiUrl('/api/setores'), { headers }).then(r => (r.ok ? r.json() : [])),
+      fetch(apiUrl(`/api/almoxarifados${qsInter}`), { headers }).then(r => (r.ok ? r.json() : [])),
+      fetch(apiUrl(`/api/sub_almoxarifados${qsInter}`), { headers }).then(r => (r.ok ? r.json() : [])),
+      fetch(apiUrl(`/api/setores${qsInter}`), { headers }).then(r => (r.ok ? r.json() : [])),
     ]).then(([c, a, s, sets]) => {
       setCentrais(c);
       setAlmoxarifados(a);
       setSubAlmoxarifados(s);
       setSetores(sets);
     }).catch(() => setError('Erro ao carregar hierarquia'));
-  }, [authLoading, user]);
+  }, [authLoading, includeInterCentral, user]);
+
+  useEffect(() => {
+    if (!formData.destino_id) return;
+    if (formData.destino_tipo === 'almoxarifado') {
+      if (almoxarifados.some(a => a.id === formData.destino_id)) return;
+    } else if (formData.destino_tipo === 'sub_almoxarifado') {
+      if (subAlmoxarifados.some(s => s.id === formData.destino_id)) return;
+    } else if (formData.destino_tipo === 'setor') {
+      if (setores.some(s => s.id === formData.destino_id)) return;
+    }
+    setFormData(prev => ({ ...prev, destino_id: '' }));
+  }, [almoxarifados, formData.destino_id, formData.destino_tipo, setores, subAlmoxarifados]);
 
   useEffect(() => {
     if (!produtoQuery.trim()) {
@@ -520,6 +534,15 @@ export default function DistribuicaoPage() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Destino</label>
               <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4"
+                    checked={includeInterCentral}
+                    onChange={e => setIncludeInterCentral(e.target.checked)}
+                  />
+                  Incluir destinos &quot;Receber de Outra Central&quot;
+                </label>
                 <div className="flex gap-2">
                   {(['setor', 'sub_almoxarifado', 'almoxarifado'] as const).map(t => {
                     const active = formData.destino_tipo === t;

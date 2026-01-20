@@ -45,6 +45,10 @@ export default function EditarProdutoPage() {
   useEffect(() => {
     if (authLoading) return;
     if (!user) return;
+    if (user.role === 'operador_setor') {
+      router.replace('/setor');
+      return;
+    }
     const headers = { 'X-User-Id': user.id };
     Promise.all([
       fetch(apiUrl(`/api/produtos/${id}`), { headers }).then(res => res.json()),
@@ -54,8 +58,8 @@ export default function EditarProdutoPage() {
       const categorias = cats as Categoria[];
 
       setFormData({
-        nome: produto.nome,
-        codigo: produto.codigo,
+        nome: String(produto.nome || ''),
+        codigo: String(produto.codigo || ''),
         categoria_id: categorias.find((c) => c.nome === produto.categoria)?.id || '',
         unidade: produto.unidade || 'UN',
         descricao: produto.descricao || '',
@@ -68,7 +72,7 @@ export default function EditarProdutoPage() {
       console.error(err);
       alert('Erro ao carregar dados');
     });
-  }, [authLoading, id, user]);
+  }, [authLoading, id, router, user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -110,6 +114,9 @@ export default function EditarProdutoPage() {
     }
   };
 
+  if (authLoading) return null;
+  if (!user) return null;
+  if (user.role === 'operador_setor') return null;
   if (loading) return <Loading />;
 
   return (

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { Package, ArrowLeftRight, Home, LogOut, PackagePlus, Truck, Box, Users, BarChart, Menu, Warehouse, UserCircle, MapPin, ShoppingCart, X } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -10,14 +10,7 @@ import { useAuth } from '@/context/AuthContext';
 export default function Sidebar() {
   const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();
-  const router = useRouter();
   const { user, logout, canAccess, loading } = useAuth();
-
-  useEffect(() => {
-    if (!loading && !user && pathname !== '/login') {
-      router.push('/login');
-    }
-  }, [user, loading, pathname, router]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -270,16 +263,18 @@ export default function Sidebar() {
             <p className="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Relatórios</p>
           </div>
 
-          <Link 
-            href="/relatorios" 
-            onClick={() => setIsOpen(false)}
-            className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group ${
-              pathname === '/relatorios' ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-blue-50 hover:text-blue-600'
-            }`}
-          >
-            <BarChart className="h-5 w-5" />
-            <span className="font-medium">Financeiro & Ops</span>
-          </Link>
+          {(canAccess(['super_admin', 'admin_central'])) && (
+            <Link 
+              href="/relatorios" 
+              onClick={() => setIsOpen(false)}
+              className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group ${
+                pathname === '/relatorios' ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-blue-50 hover:text-blue-600'
+              }`}
+            >
+              <BarChart className="h-5 w-5" />
+              <span className="font-medium">Financeiro & Ops</span>
+            </Link>
+          )}
 
           <Link 
             href="/movimentacoes" 

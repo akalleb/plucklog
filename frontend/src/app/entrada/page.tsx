@@ -52,6 +52,7 @@ export default function NovaEntradaPage() {
   // Form State
   const [formData, setFormData] = useState({
     quantidade: '',
+    preco_unitario: '',
     central_id: '',
     almoxarifado_id: '',
     sub_almoxarifado_id: '',
@@ -143,6 +144,7 @@ export default function NovaEntradaPage() {
       const payload = {
         produto_id: produtoSelected.id,
         quantidade: Number(formData.quantidade),
+        ...(formData.preco_unitario.trim() !== '' ? { preco_unitario: Number(formData.preco_unitario) } : {}),
         destino_tipo: destinoTipo,
         destino_id: destinoId,
         fornecedor: formData.fornecedor || undefined,
@@ -270,6 +272,18 @@ export default function NovaEntradaPage() {
                 className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 outline-none"
                 value={formData.quantidade}
                 onChange={e => setFormData({...formData, quantidade: e.target.value})}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Preço Unitário (opcional)</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 outline-none"
+                value={formData.preco_unitario}
+                onChange={e => setFormData({ ...formData, preco_unitario: e.target.value })}
               />
             </div>
 

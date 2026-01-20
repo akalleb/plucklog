@@ -442,6 +442,7 @@ class LoteUpdate(BaseModel):
     numero_lote: Optional[str] = None
     data_validade: Optional[datetime] = None
     quantidade_atual: Optional[float] = None
+    preco_unitario: Optional[float] = None
 
 @app.get("/api/produtos/search")
 async def search_produtos(
@@ -622,6 +623,7 @@ async def get_produto_detalhes(produto_id: str, user: Dict[str, Any] = Depends(g
                 "numero": l.get("numero_lote"),
                 "validade": _dt_to_utc_iso(validade),
                 "quantidade": l.get("quantidade_atual"),
+                "preco_unitario": l.get("preco_unitario"),
                 "status": "Vencido" if _is_expired(validade) else "Ok"
             })
     except Exception:
@@ -667,6 +669,15 @@ async def update_lote(lote_id: str, item: LoteUpdate, user: Dict[str, Any] = Dep
         if qv < 0:
             raise HTTPException(status_code=400, detail="Quantidade deve ser maior ou igual a zero")
         update_data["quantidade_atual"] = qv
+        changed = True
+    if item.preco_unitario is not None:
+        try:
+            pv = float(item.preco_unitario)
+        except Exception:
+            raise HTTPException(status_code=400, detail="Preço inválido")
+        if pv < 0:
+            raise HTTPException(status_code=400, detail="Preço deve ser maior ou igual a zero")
+        update_data["preco_unitario"] = pv
         changed = True
 
     if not changed:
@@ -884,6 +895,110 @@ async def get_movimentacoes(
             "pages": math.ceil(total / per_page)
         }
     }
+
+@app.get("/api/movimentacoes/setor/{setor_id}", response_model=MovimentacaoResponse)
+async def get_movimentacoes_por_setor(
+    setor_id: str,
+    page: int = Query(1, ge=1),
+    per_page: int = Query(20, ge=1, le=100),
+    produto_id: Optional[str] = None,
+    user: Dict[str, Any] = Depends(get_current_user),
+):
+    setor = await _find_one_by_id("setores", setor_id)
+    if not setor:
+        raise HTTPException(status_code=404, detail="Setor não encontrado")
+    sid = _public_id(setor) or setor_id
+
+    role = user.get("role")
+    scope_id = user.get("scope_id")
+    if role == "operador_setor":
+        if not scope_id:
+            raise HTTPException(status_code=403, detail="Acesso negado")
+        scope_setor = await _find_one_by_id("setores", scope_id)
+        scope_sid = _public_id(scope_setor) if scope_setor else None
+        if _norm_id(scope_sid or scope_id) != _norm_id(sid):
+            raise HTTPException(status_code=403, detail="Acesso negado")
+
+    sid_values: List[Any] = [sid]
+    if str(sid).isdigit():
+        sid_values.append(int(str(sid)))
+
+    setor_nome = (setor.get("nome") or "").strip()
+    setor_ors: List[Dict[str, Any]] = [
+        {"local_destino_tipo": "setor", "local_destino_id": {"$in": sid_values}},
+        {"local_origem_tipo": "setor", "local_origem_id": {"$in": sid_values}},
+        {"local_tipo": "setor", "local_id": {"$in": sid_values}},
+    ]
+    if setor_nome:
+        setor_ors += [{"destino_nome": setor_nome}, {"origem_nome": setor_nome}]
+
+    query: Dict[str, Any] = {"$or": setor_ors}
+
+    if produto_id:
+        prod_query = {"$or": [{"_id": produto_id}, {"id": produto_id}, {"codigo": produto_id}]}
+        if ObjectId.is_valid(produto_id):
+            prod_query["$or"].append({"_id": ObjectId(produto_id)})
+        elif produto_id.isdigit():
+            prod_query["$or"].append({"id": int(produto_id)})
+        produto = await db.db.produtos.find_one(prod_query, {"_id": 1, "id": 1})
+        if not produto:
+            return {"items": [], "pagination": {"total": 0, "page": page, "pages": 1}}
+        p_ids: List[Any] = []
+        p_ids.append(produto.get("_id"))
+        p_ids.append(str(produto.get("_id")))
+        if produto.get("id") is not None:
+            p_ids.append(produto.get("id"))
+            p_ids.append(str(produto.get("id")))
+        query = {"$and": [query, {"produto_id": {"$in": p_ids}}]}
+
+    skip = (page - 1) * per_page
+    total = await db.db.movimentacoes.count_documents(query)
+    cursor = db.db.movimentacoes.find(query).sort("data_movimentacao", -1).skip(skip).limit(per_page)
+    movs = await cursor.to_list(length=per_page)
+
+    prod_ids = set()
+    for m in movs:
+        if m.get("produto_id") is not None:
+            prod_ids.add(m.get("produto_id"))
+
+    async def fetch_map_simple(coll, ids):
+        if not ids:
+            return {}
+        q_ids = []
+        for i in ids:
+            if ObjectId.is_valid(str(i)):
+                q_ids.append(ObjectId(str(i)))
+            q_ids.append(i)
+            if str(i).isdigit():
+                q_ids.append(int(i))
+        docs = await db.db[coll].find({"$or": [{"_id": {"$in": q_ids}}, {"id": {"$in": q_ids}}]}).to_list(length=len(ids))
+        mapping = {}
+        for d in docs:
+            mapping[str(d.get("_id"))] = d
+            if d.get("id") is not None:
+                mapping[str(d.get("id"))] = d
+        return mapping
+
+    prod_map = await fetch_map_simple("produtos", list(prod_ids))
+
+    results = []
+    for m in movs:
+        pid = str(m.get("produto_id"))
+        p = prod_map.get(pid, {})
+        dt = m.get("data_movimentacao") or m.get("created_at") or _now_utc()
+        results.append({
+            "id": str(m.get("_id")),
+            "produto_nome": p.get("nome", "Produto Removido"),
+            "tipo": m.get("tipo", "outros"),
+            "quantidade": float(m.get("quantidade", 0)),
+            "data": _dt_to_utc_iso(dt),
+            "origem": m.get("origem_nome", "-"),
+            "destino": m.get("destino_nome", "-"),
+            "usuario": m.get("usuario_responsavel"),
+            "nota_fiscal": m.get("nota_fiscal"),
+        })
+
+    return {"items": results, "pagination": {"page": page, "total": total, "pages": math.ceil(total / per_page)}}
 
 # --- Rota Otimizada de Estoque (Exemplo de Migração) ---
 @app.get("/api/estoque/hierarquia", response_model=EstoqueResponse)
@@ -1421,7 +1536,6 @@ async def get_estoque_por_setor(setor_id: str, user: Dict[str, Any] = Depends(ge
         "$or": [
             {"setor_id": {"$in": sid_values}},
             {"local_tipo": "setor", "local_id": {"$in": sid_values}},
-            {"local_id": {"$in": sid_values}},
         ]
     }
     docs = await db.db.estoques.find(query).to_list(length=5000)
@@ -1451,6 +1565,8 @@ async def get_estoque_por_setor(setor_id: str, user: Dict[str, Any] = Depends(ge
         grouped[pid] = g
     items = []
     for pid, g in grouped.items():
+        if float(g.get("quantidade_disponivel") or 0) <= 0:
+            continue
         p = prod_lookup.get(pid, {})
         items.append({
             "produto_id": pid,
@@ -1565,6 +1681,7 @@ async def get_estoque_por_central(central_id: str, user: Dict[str, Any] = Depend
 class EntradaRequest(BaseModel):
     produto_id: str
     quantidade: float
+    preco_unitario: Optional[float] = None
     destino_tipo: Optional[str] = "almoxarifado"  # almoxarifado | sub_almoxarifado
     destino_id: Optional[str] = None
     almoxarifado_id: Optional[str] = None  # legado
@@ -1584,6 +1701,8 @@ async def post_entrada(req: EntradaRequest, user: Dict[str, Any] = Depends(get_c
         raise HTTPException(status_code=400, detail="Quantidade deve ser maior que zero")
     if not (req.lote or "").strip():
         raise HTTPException(status_code=400, detail="Lote é obrigatório")
+    if req.preco_unitario is not None and float(req.preco_unitario) < 0:
+        raise HTTPException(status_code=400, detail="Preço deve ser maior ou igual a zero")
 
     # 1. Validar Produto
     prod_query = {"$or": [{"_id": req.produto_id}, {"id": req.produto_id}, {"codigo": req.produto_id}]}
@@ -1688,15 +1807,20 @@ async def post_entrada(req: EntradaRequest, user: Dict[str, Any] = Depends(get_c
     # 5. Registrar Lote (se informado)
     if req.lote:
         lote_filter = {'produto_id': pid_out, 'numero_lote': req.lote}
+        lote_set = {
+            'produto_id': pid_out,
+            'numero_lote': req.lote,
+            'lote': req.lote,
+            'data_validade': req.data_validade,
+            'almoxarifado_id': almox_id_out,
+            'updated_at': now
+        }
+        if req.preco_unitario is not None:
+            lote_set['preco_unitario'] = float(req.preco_unitario)
         lote_update = {
             '$inc': {'quantidade_atual': req.quantidade},
             '$set': {
-                'produto_id': pid_out,
-                'numero_lote': req.lote,
-                'lote': req.lote, # Compatibilidade
-                'data_validade': req.data_validade,
-                'almoxarifado_id': almox_id_out,
-                'updated_at': now
+                **lote_set
             },
             '$setOnInsert': {'created_at': now}
         }
@@ -2950,7 +3074,6 @@ async def post_consumo_setor(req: SetorConsumoRequest, user: Dict[str, Any] = De
         "$or": [
             {"setor_id": {"$in": sid_values}},
             {"local_tipo": "setor", "local_id": {"$in": sid_values}},
-            {"local_id": {"$in": sid_values}},
         ],
     })
     saldo_atual = float(estoque.get("quantidade_disponivel", 0)) if estoque else 0.0

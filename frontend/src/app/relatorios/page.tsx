@@ -3,9 +3,12 @@
 import { BarChart, TrendingUp, DollarSign, Calendar, ArrowUpRight, ArrowDownRight, Package } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
+import Link from 'next/link';
 import { apiUrl } from '@/lib/api';
+import { useAuth } from '@/context/AuthContext';
 
 export default function RelatoriosPage() {
+  const { user, loading: authLoading, canAccess } = useAuth();
   const [stats, setStats] = useState({
     total_produtos: 0,
     baixo_estoque: 0,
@@ -17,24 +20,37 @@ export default function RelatoriosPage() {
   const [movData, setMovData] = useState([]);
 
   useEffect(() => {
-    // Carregar Stats
-    fetch(apiUrl('/api/dashboard/stats'))
-      .then(res => res.json())
+    if (authLoading) return;
+    if (!user) return;
+    if (!canAccess(['super_admin', 'admin_central'])) return;
+
+    const headers = { 'X-User-Id': user.id };
+    const controller = new AbortController();
+    const { signal } = controller;
+
+    const safeJson = async (res: Response) => res.json().catch(() => ({}));
+    const ignoreAbort = (err: unknown) => {
+      if (err && typeof err === 'object' && 'name' in err && (err as { name?: unknown }).name === 'AbortError') return;
+      console.error(err);
+    };
+
+    fetch(apiUrl('/api/dashboard/stats'), { headers, signal })
+      .then(res => safeJson(res))
       .then(data => setStats(data))
-      .catch(console.error);
+      .catch(ignoreAbort);
 
-    // Carregar Gráfico Consumo
-    fetch(apiUrl('/api/dashboard/charts/consumo'))
-      .then(res => res.json())
+    fetch(apiUrl('/api/dashboard/charts/consumo'), { headers, signal })
+      .then(res => safeJson(res))
       .then(data => setConsumoData(data))
-      .catch(console.error);
+      .catch(ignoreAbort);
 
-    // Carregar Gráfico Movimentações
-    fetch(apiUrl('/api/dashboard/charts/movimentacoes'))
-      .then(res => res.json())
+    fetch(apiUrl('/api/dashboard/charts/movimentacoes'), { headers, signal })
+      .then(res => safeJson(res))
       .then(data => setMovData(data))
-      .catch(console.error);
-  }, []);
+      .catch(ignoreAbort);
+
+    return () => controller.abort();
+  }, [authLoading, canAccess, user]);
 
   const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
@@ -53,6 +69,32 @@ export default function RelatoriosPage() {
     }
     return new Date(v).toLocaleDateString('pt-BR');
   };
+
+  if (authLoading) return null;
+  if (!user) {
+    return (
+      <div className="p-8 max-w-6xl mx-auto">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+          <div className="text-gray-900 font-semibold mb-1">Você precisa estar logado para ver relatórios.</div>
+          <Link href="/login" className="text-blue-700 hover:text-blue-800 underline">
+            Ir para login
+          </Link>
+        </div>
+      </div>
+    );
+  }
+  if (!canAccess(['super_admin', 'admin_central'])) {
+    return (
+      <div className="p-8 max-w-6xl mx-auto">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+          <div className="text-gray-900 font-semibold mb-1">Acesso negado.</div>
+          <Link href="/" className="text-blue-700 hover:text-blue-800 underline">
+            Voltar ao início
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-8 max-w-6xl mx-auto">

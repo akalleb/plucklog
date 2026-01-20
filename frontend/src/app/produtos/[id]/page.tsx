@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { Package, ArrowLeft, MapPin, History, Box, Activity, Edit2 } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
@@ -35,18 +35,20 @@ interface ProdutoDetalhes {
     numero: string;
     validade?: string | null;
     quantidade: number;
+    preco_unitario?: number | null;
     status: string;
   }[];
 }
 
 export default function ProdutoDetalhesPage() {
   const params = useParams();
-  const { user } = useAuth();
+  const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
   const [produto, setProduto] = useState<ProdutoDetalhes | null>(null);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [savingLote, setSavingLote] = useState(false);
-  const [editingLote, setEditingLote] = useState<{ id: string; numero: string; validade: string; quantidade: string } | null>(null);
+  const [editingLote, setEditingLote] = useState<{ id: string; numero: string; validade: string; quantidade: string; preco_unitario: string } | null>(null);
 
   const formatDate = (value?: string | null) => {
     if (!value) return '-';
@@ -69,8 +71,13 @@ export default function ProdutoDetalhesPage() {
   };
 
   useEffect(() => {
+    if (authLoading) return;
     if (!params.id) return;
     if (!user) return;
+    if (user.role === 'operador_setor') {
+      router.replace('/setor');
+      return;
+    }
     fetch(apiUrl(`/api/produtos/${params.id}`), { headers: { 'X-User-Id': user.id } })
         .then(res => {
           if (!res.ok) throw new Error('Produto não encontrado');
@@ -79,12 +86,14 @@ export default function ProdutoDetalhesPage() {
         .then(data => setProduto(data))
         .catch(err => console.error(err))
         .finally(() => setLoading(false));
-  }, [params.id, user]);
+  }, [authLoading, params.id, router, user]);
 
-  const openEditLote = (lote: { id: string; numero: string; validade?: string | null; quantidade?: number }) => {
+  const openEditLote = (lote: { id: string; numero: string; validade?: string | null; quantidade?: number; preco_unitario?: number | null }) => {
     const validade = lote.validade ? new Date(lote.validade).toISOString().slice(0, 10) : '';
     const quantidade = typeof lote.quantidade === 'number' && Number.isFinite(lote.quantidade) ? String(lote.quantidade) : '';
-    setEditingLote({ id: lote.id, numero: lote.numero, validade, quantidade });
+    const preco_unitario =
+      typeof lote.preco_unitario === 'number' && Number.isFinite(lote.preco_unitario) ? String(lote.preco_unitario) : '';
+    setEditingLote({ id: lote.id, numero: lote.numero, validade, quantidade, preco_unitario });
     setShowModal(true);
   };
 
@@ -104,6 +113,9 @@ export default function ProdutoDetalhesPage() {
 
       if (editingLote.quantidade.trim() !== '') {
         payload.quantidade_atual = Number(editingLote.quantidade);
+      }
+      if (editingLote.preco_unitario.trim() !== '') {
+        payload.preco_unitario = Number(editingLote.preco_unitario);
       }
 
       const res = await fetch(apiUrl(`/api/lotes/${editingLote.id}`), {
@@ -129,6 +141,9 @@ export default function ProdutoDetalhesPage() {
     }
   };
 
+  if (authLoading) return null;
+  if (!user) return null;
+  if (user.role === 'operador_setor') return null;
   if (loading) return <Loading label="Carregando detalhes" />;
   if (!produto) return <div className="p-8 text-center text-red-500">Produto não encontrado.</div>;
 
@@ -244,6 +259,7 @@ export default function ProdutoDetalhesPage() {
                     <th className="px-4 py-2 font-medium">Lote</th>
                     <th className="px-4 py-2 font-medium">Validade</th>
                     <th className="px-4 py-2 font-medium">Quantidade</th>
+                    <th className="px-4 py-2 font-medium">Preço Unitário</th>
                     <th className="px-4 py-2 font-medium">Status</th>
                     <th className="px-4 py-2 font-medium text-right">Ações</th>
                   </tr>
@@ -254,6 +270,11 @@ export default function ProdutoDetalhesPage() {
                       <td className="px-4 py-2 font-medium text-gray-900">{lote.numero}</td>
                       <td className="px-4 py-2 text-gray-600">{formatDate(lote.validade)}</td>
                       <td className="px-4 py-2 text-gray-900">{lote.quantidade}</td>
+                      <td className="px-4 py-2 text-gray-900">
+                        {typeof lote.preco_unitario === 'number' && Number.isFinite(lote.preco_unitario)
+                          ? lote.preco_unitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+                          : '-'}
+                      </td>
                       <td className="px-4 py-2">
                         <span className={`px-2 py-0.5 rounded text-xs font-medium ${
                           lote.status === 'Vencido' ? 'bg-red-100 text-red-700' : 
@@ -314,6 +335,17 @@ export default function ProdutoDetalhesPage() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                   value={editingLote.quantidade}
                   onChange={e => setEditingLote({ ...editingLote, quantidade: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Preço Unitário</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                  value={editingLote.preco_unitario}
+                  onChange={e => setEditingLote({ ...editingLote, preco_unitario: e.target.value })}
                 />
               </div>
               <div className="flex justify-end gap-2 pt-4">

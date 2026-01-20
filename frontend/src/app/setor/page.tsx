@@ -9,8 +9,9 @@ import { InlineLoading } from '@/components/ui/Page';
 import { apiUrl } from '@/lib/api';
 
 type SetorInfo = { id: string; nome: string };
-type EstoqueItem = { produto_id: string; quantidade_disponivel: number };
+type EstoqueItem = { produto_id: string; produto_nome?: string; produto_codigo?: string; quantidade_disponivel: number };
 type Demanda = { id: string; status: string };
+type MovItem = { id: string; produto_nome: string; tipo: string; quantidade: number; data: string; origem: string; destino: string };
 
 export default function SetorHomePage() {
   const router = useRouter();
@@ -18,6 +19,7 @@ export default function SetorHomePage() {
   const [setor, setSetor] = useState<SetorInfo | null>(null);
   const [estoqueItems, setEstoqueItems] = useState<EstoqueItem[]>([]);
   const [demandas, setDemandas] = useState<Demanda[]>([]);
+  const [movs, setMovs] = useState<MovItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -44,16 +46,27 @@ export default function SetorHomePage() {
       fetch(apiUrl(`/api/setores/${encodeURIComponent(user.scope_id)}`), { headers }).then(r => (r.ok ? r.json() : null)),
       fetch(apiUrl(`/api/estoque/setor/${encodeURIComponent(user.scope_id)}`), { headers }).then(r => (r.ok ? r.json() : { items: [] })),
       fetch(apiUrl('/api/demandas?mine=true&per_page=100'), { headers }).then(r => (r.ok ? r.json() : { items: [] })),
+      fetch(apiUrl(`/api/movimentacoes/setor/${encodeURIComponent(user.scope_id)}?per_page=12`), { headers }).then(r =>
+        r.ok ? r.json() : { items: [] }
+      ),
     ])
-      .then(([s, est, dem]) => {
+      .then(([s, est, dem, mov]) => {
         if (!s) throw new Error('Setor não encontrado');
         setSetor(s);
         setEstoqueItems(Array.isArray(est?.items) ? est.items : []);
         setDemandas(Array.isArray(dem?.items) ? dem.items : []);
+        setMovs(Array.isArray(mov?.items) ? mov.items : []);
       })
       .catch((e: unknown) => setError(e instanceof Error ? e.message : 'Erro ao carregar setor'))
       .finally(() => setLoading(false));
   }, [authLoading, user, router]);
+
+  const formatDateTime = (value?: string | null) => {
+    if (!value) return '-';
+    const normalized =
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?$/.test(value) ? `${value}Z` : value;
+    return new Date(normalized).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  };
 
   const estoqueResumo = useMemo(() => {
     const items = estoqueItems || [];
@@ -74,6 +87,29 @@ export default function SetorHomePage() {
       totalDisponivel,
     };
   }, [estoqueItems]);
+
+  const baixoEstoque = useMemo(() => {
+    const list = (estoqueItems || [])
+      .filter(i => {
+        const v = Number(i?.quantidade_disponivel ?? 0);
+        return Number.isFinite(v) && v > 0 && v <= 5;
+      })
+      .map(i => ({
+        produto_id: String(i.produto_id || ''),
+        produto_nome: String(i.produto_nome || ''),
+        produto_codigo: String(i.produto_codigo || ''),
+        quantidade_disponivel: Number(i.quantidade_disponivel || 0),
+      }))
+      .filter(i => i.produto_id);
+    list.sort((a, b) => a.quantidade_disponivel - b.quantidade_disponivel || a.produto_nome.localeCompare(b.produto_nome));
+    return list.slice(0, 12);
+  }, [estoqueItems]);
+
+  const enviadosRecentes = useMemo(() => {
+    const setorNome = String(setor?.nome || '').trim();
+    const list = (movs || []).filter(m => (m.tipo || '').toLowerCase() === 'distribuicao' || (!!setorNome && m.destino === setorNome));
+    return list.slice(0, 10);
+  }, [movs, setor?.nome]);
 
   const demandasResumo = useMemo(() => {
     const items = demandas || [];
@@ -161,6 +197,66 @@ export default function SetorHomePage() {
         </div>
       </div>
 
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <div className="font-semibold text-gray-900">Produtos Recentemente Enviados</div>
+            <Link href="/setor/estoque" className="text-sm text-blue-600 hover:underline">
+              Ver estoque
+            </Link>
+          </div>
+          {loading ? (
+            <div className="text-sm text-gray-500">
+              <InlineLoading label="Carregando" />
+            </div>
+          ) : enviadosRecentes.length === 0 ? (
+            <div className="text-sm text-gray-500 italic">Nenhum envio recente.</div>
+          ) : (
+            <div className="space-y-3">
+              {enviadosRecentes.map(m => (
+                <div key={m.id} className="flex items-start justify-between gap-4 pb-3 border-b border-gray-100 last:border-0">
+                  <div className="min-w-0">
+                    <div className="font-medium text-gray-900 truncate">{m.produto_nome}</div>
+                    <div className="text-xs text-gray-500 truncate">
+                      {m.origem} &rarr; {m.destino} · {formatDateTime(m.data)}
+                    </div>
+                  </div>
+                  <div className="font-semibold text-gray-900 whitespace-nowrap">+{Number(m.quantidade || 0).toFixed(2)}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <div className="font-semibold text-gray-900">Estoque Baixo (≤ 5)</div>
+            <Link href="/setor/estoque" className="text-sm text-blue-600 hover:underline">
+              Ver estoque
+            </Link>
+          </div>
+          {loading ? (
+            <div className="text-sm text-gray-500">
+              <InlineLoading label="Carregando" />
+            </div>
+          ) : baixoEstoque.length === 0 ? (
+            <div className="text-sm text-gray-500 italic">Nenhum item com estoque baixo.</div>
+          ) : (
+            <div className="space-y-3">
+              {baixoEstoque.map(i => (
+                <div key={i.produto_id} className="flex items-start justify-between gap-4 pb-3 border-b border-gray-100 last:border-0">
+                  <div className="min-w-0">
+                    <div className="font-medium text-gray-900 truncate">{i.produto_nome || i.produto_id}</div>
+                    <div className="text-xs text-gray-500 truncate">Cód: {i.produto_codigo || '-'}</div>
+                  </div>
+                  <div className="font-semibold text-gray-900 whitespace-nowrap">{Number(i.quantidade_disponivel || 0).toFixed(2)}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Link
           href="/setor/estoque"
@@ -204,4 +300,3 @@ export default function SetorHomePage() {
     </div>
   );
 }
-

@@ -37,6 +37,9 @@ interface ProdutoDetalhes {
     quantidade: number;
     preco_unitario?: number | null;
     status: string;
+    local_id?: string | null;
+    local_nome?: string;
+    local_tipo?: string;
   }[];
 }
 
@@ -46,9 +49,28 @@ export default function ProdutoDetalhesPage() {
   const { user, loading: authLoading } = useAuth();
   const [produto, setProduto] = useState<ProdutoDetalhes | null>(null);
   const [loading, setLoading] = useState(true);
+  const [cleaningProduto, setCleaningProduto] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [savingLote, setSavingLote] = useState(false);
-  const [editingLote, setEditingLote] = useState<{ id: string; numero: string; validade: string; quantidade: string; preco_unitario: string } | null>(null);
+  const [deletingLote, setDeletingLote] = useState(false);
+  const [editingLote, setEditingLote] = useState<{
+    id: string;
+    numero: string;
+    validade: string;
+    quantidade: string;
+    preco_unitario: string;
+    local_nome?: string;
+    local_tipo?: string;
+  } | null>(null);
+  const [editingLoteOriginal, setEditingLoteOriginal] = useState<{
+    id: string;
+    numero: string;
+    validade: string;
+    quantidade: string;
+    preco_unitario: string;
+    local_nome?: string;
+    local_tipo?: string;
+  } | null>(null);
 
   const formatDate = (value?: string | null) => {
     if (!value) return '-';
@@ -88,19 +110,31 @@ export default function ProdutoDetalhesPage() {
         .finally(() => setLoading(false));
   }, [authLoading, params.id, router, user]);
 
-  const openEditLote = (lote: { id: string; numero: string; validade?: string | null; quantidade?: number; preco_unitario?: number | null }) => {
+  const openEditLote = (lote: {
+    id: string;
+    numero: string;
+    validade?: string | null;
+    quantidade?: number;
+    preco_unitario?: number | null;
+    local_nome?: string;
+    local_tipo?: string;
+  }) => {
+    const numero = String(lote.numero || '');
     const validade = lote.validade ? new Date(lote.validade).toISOString().slice(0, 10) : '';
     const quantidade =
       typeof lote.quantidade === 'number' && Number.isFinite(lote.quantidade) ? String(Math.round(lote.quantidade)) : '';
     const preco_unitario =
       typeof lote.preco_unitario === 'number' && Number.isFinite(lote.preco_unitario) ? String(lote.preco_unitario) : '';
-    setEditingLote({ id: lote.id, numero: lote.numero, validade, quantidade, preco_unitario });
+    const next = { id: lote.id, numero, validade, quantidade, preco_unitario, local_nome: lote.local_nome, local_tipo: lote.local_tipo };
+    setEditingLote(next);
+    setEditingLoteOriginal(next);
     setShowModal(true);
   };
 
   const saveLote = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingLote) return;
+    if (!editingLoteOriginal) return;
     if (!user) {
       alert('Usuário não autenticado');
       return;
@@ -124,6 +158,31 @@ export default function ProdutoDetalhesPage() {
         payload.preco_unitario = Number(editingLote.preco_unitario);
       }
 
+      const changes: string[] = [];
+      if (editingLote.numero.trim() !== editingLoteOriginal.numero.trim()) {
+        changes.push(`Número: "${editingLoteOriginal.numero}" → "${editingLote.numero.trim()}"`);
+      }
+      if (editingLote.validade !== editingLoteOriginal.validade) {
+        changes.push(`Validade: ${editingLoteOriginal.validade || '-'} → ${editingLote.validade || '-'}`);
+      }
+      if (editingLote.quantidade.trim() !== editingLoteOriginal.quantidade.trim()) {
+        changes.push(`Quantidade: ${editingLoteOriginal.quantidade || '0'} → ${editingLote.quantidade.trim() || '0'}`);
+      }
+      if (editingLote.preco_unitario.trim() !== editingLoteOriginal.preco_unitario.trim()) {
+        changes.push(`Preço unitário: ${editingLoteOriginal.preco_unitario || '-'} → ${editingLote.preco_unitario.trim() || '-'}`);
+      }
+      if (changes.length === 0) {
+        alert('Nenhuma alteração detectada.');
+        return;
+      }
+      const localLabel = editingLoteOriginal.local_nome
+        ? `${editingLoteOriginal.local_nome}${editingLoteOriginal.local_tipo ? ` (${editingLoteOriginal.local_tipo})` : ''}`
+        : '';
+      const ok = window.confirm(
+        `Confirmar alteração do lote "${editingLoteOriginal.numero}"?\n${localLabel ? `Local: ${localLabel}\n` : ''}${changes.join('\n')}`,
+      );
+      if (!ok) return;
+
       const res = await fetch(apiUrl(`/api/lotes/${editingLote.id}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'X-User-Id': user.id },
@@ -139,11 +198,88 @@ export default function ProdutoDetalhesPage() {
       }
       setShowModal(false);
       setEditingLote(null);
+      setEditingLoteOriginal(null);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Erro ao salvar lote';
       alert(message);
     } finally {
       setSavingLote(false);
+    }
+  };
+
+  const deleteLote = async () => {
+    if (!editingLote) return;
+    if (!editingLoteOriginal) return;
+    if (!user) {
+      alert('Usuário não autenticado');
+      return;
+    }
+    const localLabel = editingLoteOriginal.local_nome
+      ? `${editingLoteOriginal.local_nome}${editingLoteOriginal.local_tipo ? ` (${editingLoteOriginal.local_tipo})` : ''}`
+      : '';
+    const okDelete = window.confirm(
+      `Excluir o lote "${editingLoteOriginal.numero}"?\n${localLabel ? `Local: ${localLabel}\n` : ''}Quantidade: ${editingLoteOriginal.quantidade || '0'}\n\nEssa ação não pode ser desfeita.`,
+    );
+    if (!okDelete) return;
+
+    const canPurge = user.role === 'super_admin' && (produto?.lotes?.length || 0) <= 1;
+    let purgeProduto = false;
+    if (canPurge) {
+      purgeProduto = window.confirm(
+        'Você também quer apagar os dados do produto?\n\nIsso remove:\n- Distribuição por Local (estoques)\n- Últimas Movimentações\n\nE grava uma observação no produto informando a limpeza.',
+      );
+    }
+
+    setDeletingLote(true);
+    try {
+      const qs = purgeProduto ? '?purge_produto=true' : '';
+      const res = await fetch(apiUrl(`/api/lotes/${editingLote.id}${qs}`), {
+        method: 'DELETE',
+        headers: { 'X-User-Id': user.id }
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || 'Erro ao excluir lote');
+
+      if (params.id) {
+        const refreshed = await fetch(apiUrl(`/api/produtos/${params.id}`), { headers: { 'X-User-Id': user.id } }).then(r => r.json());
+        setProduto(refreshed);
+      }
+      setShowModal(false);
+      setEditingLote(null);
+      setEditingLoteOriginal(null);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Erro ao excluir lote';
+      alert(message);
+    } finally {
+      setDeletingLote(false);
+    }
+  };
+
+  const limparDadosSemLotes = async () => {
+    if (!user) return;
+    if (!params.id) return;
+    if (!produto) return;
+    const ok = window.confirm(
+      'Este produto está sem lotes, mas ainda possui dados em Distribuição por Local / Últimas Movimentações.\n\nDeseja apagar esses dados agora?\n\nEssa ação não pode ser desfeita.',
+    );
+    if (!ok) return;
+
+    setCleaningProduto(true);
+    try {
+      const res = await fetch(apiUrl(`/api/produtos/${params.id}/limpar_dados_sem_lotes`), {
+        method: 'POST',
+        headers: { 'X-User-Id': user.id }
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || 'Erro ao limpar dados');
+
+      const refreshed = await fetch(apiUrl(`/api/produtos/${params.id}`), { headers: { 'X-User-Id': user.id } }).then(r => r.json());
+      setProduto(refreshed);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Erro ao limpar dados';
+      alert(message);
+    } finally {
+      setCleaningProduto(false);
     }
   };
 
@@ -183,6 +319,19 @@ export default function ProdutoDetalhesPage() {
             <span className="block text-4xl font-bold text-blue-900">{Math.round(produto.estoque_total).toLocaleString('pt-BR')}</span>
           </div>
         </div>
+
+        {produto.lotes.length === 0 && (produto.estoque_locais.length > 0 || produto.historico_recente.length > 0) && (
+          <div className="mt-4">
+            <button
+              type="button"
+              disabled={cleaningProduto}
+              onClick={limparDadosSemLotes}
+              className="px-4 py-2 rounded-lg border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 disabled:opacity-50"
+            >
+              {cleaningProduto ? 'Limpando...' : 'Limpar dados residuais (sem lotes)'}
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -313,13 +462,21 @@ export default function ProdutoDetalhesPage() {
             <h2 className="text-xl font-bold mb-4">Editar Lote</h2>
             <form onSubmit={saveLote} className="space-y-4">
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Local</label>
+                <div className="w-full px-3 py-2 border border-gray-200 bg-gray-50 rounded-lg text-sm text-gray-800">
+                  {editingLote.local_nome
+                    ? `${editingLote.local_nome}${editingLote.local_tipo ? ` (${editingLote.local_tipo})` : ''}`
+                    : '-'}
+                </div>
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Número do Lote</label>
                 <input
                   autoFocus
                   required
                   type="text"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                  value={editingLote.numero}
+                  value={editingLote.numero || ''}
                   onChange={e => setEditingLote({ ...editingLote, numero: e.target.value })}
                 />
               </div>
@@ -328,7 +485,7 @@ export default function ProdutoDetalhesPage() {
                 <input
                   type="date"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                  value={editingLote.validade}
+                  value={editingLote.validade || ''}
                   onChange={e => setEditingLote({ ...editingLote, validade: e.target.value })}
                 />
               </div>
@@ -339,7 +496,7 @@ export default function ProdutoDetalhesPage() {
                   min="0"
                   step="1"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                  value={editingLote.quantidade}
+                  value={editingLote.quantidade || ''}
                   onChange={e => setEditingLote({ ...editingLote, quantidade: e.target.value })}
                 />
               </div>
@@ -350,16 +507,25 @@ export default function ProdutoDetalhesPage() {
                   min="0"
                   step="0.01"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                  value={editingLote.preco_unitario}
+                  value={editingLote.preco_unitario || ''}
                   onChange={e => setEditingLote({ ...editingLote, preco_unitario: e.target.value })}
                 />
               </div>
               <div className="flex justify-end gap-2 pt-4">
                 <button
                   type="button"
+                  onClick={deleteLote}
+                  disabled={savingLote || deletingLote}
+                  className="mr-auto px-4 py-2 text-red-700 hover:bg-red-50 rounded-lg disabled:opacity-50"
+                >
+                  {deletingLote ? 'Excluindo...' : 'Excluir lote'}
+                </button>
+                <button
+                  type="button"
                   onClick={() => {
                     setShowModal(false);
                     setEditingLote(null);
+                    setEditingLoteOriginal(null);
                   }}
                   className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
                 >
@@ -367,7 +533,7 @@ export default function ProdutoDetalhesPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={savingLote}
+                  disabled={savingLote || deletingLote}
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
                 >
                   {savingLote ? 'Salvando...' : 'Salvar'}

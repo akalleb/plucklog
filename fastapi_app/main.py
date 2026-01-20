@@ -93,6 +93,9 @@ class _AsyncMockCollection:
     async def delete_one(self, *args, **kwargs):
         return self._collection.delete_one(*args, **kwargs)
 
+    async def delete_many(self, *args, **kwargs):
+        return self._collection.delete_many(*args, **kwargs)
+
     async def count_documents(self, *args, **kwargs):
         return self._collection.count_documents(*args, **kwargs)
 
@@ -213,6 +216,42 @@ def _build_id_query(value: str) -> Dict[str, Any]:
         ors.append({"_id": ObjectId(value)})
     return {"$or": ors}
 
+def _id_candidates(value: Any) -> List[Any]:
+    if value is None:
+        return []
+    out: List[Any] = []
+    if isinstance(value, ObjectId):
+        out.append(value)
+        out.append(str(value))
+        return list(dict.fromkeys(out))
+    s = str(value)
+    out.append(s)
+    if s.isdigit():
+        out.append(int(s))
+    if ObjectId.is_valid(s):
+        out.append(ObjectId(s))
+    return list(dict.fromkeys(out))
+
+async def _produto_id_candidates(produto_ref: Any) -> List[Any]:
+    base = list(_id_candidates(produto_ref))
+    s = str(produto_ref)
+    ors: List[Dict[str, Any]] = [{"id": s}, {"codigo": s}]
+    if s.isdigit():
+        ors.append({"id": int(s)})
+    if ObjectId.is_valid(s):
+        ors.append({"_id": ObjectId(s)})
+    try:
+        prod = await db.db.produtos.find_one({"$or": ors}, {"_id": 1, "id": 1, "codigo": 1})
+    except Exception:
+        prod = None
+    if prod:
+        for v in [prod.get("_id"), str(prod.get("_id")), prod.get("id"), str(prod.get("id")) if prod.get("id") is not None else None, prod.get("codigo")]:
+            if v is None:
+                continue
+            base.extend(_id_candidates(v))
+            base.append(v)
+    return list(dict.fromkeys(base))
+
 async def _find_one_by_id(coll: str, value: str) -> Optional[Dict[str, Any]]:
     return await db.db[coll].find_one(_build_id_query(value))
 
@@ -309,7 +348,10 @@ async def startup_db_client():
     db.is_mock = False
 
     try:
-        db.client = AsyncIOMotorClient(MONGO_URI, serverSelectionTimeoutMS=5000)
+        timeout_ms = 5000
+        if env in ("test", "testing") or os.environ.get("PYTEST_CURRENT_TEST"):
+            timeout_ms = 200
+        db.client = AsyncIOMotorClient(MONGO_URI, serverSelectionTimeoutMS=timeout_ms)
         db.db = db.client[MONGO_DB]
         await db.client.admin.command("ping")
         print(f"Conectado ao MongoDB Async: {MONGO_DB}")
@@ -446,40 +488,72 @@ class LoteUpdate(BaseModel):
 
 @app.get("/api/produtos/search")
 async def search_produtos(
-    q: str = Query(..., min_length=1),
-    limit: int = Query(10, ge=1, le=50),
+    q: str = Query("", min_length=0),
+    limit: int = Query(10, ge=1, le=200),
+    page: int = Query(1, ge=1),
     user: Dict[str, Any] = Depends(get_current_user),
 ):
-    q = q.strip()
+    q = (q or "").strip()
     role = user.get("role")
-    ors: List[Dict[str, Any]] = [
-        {"nome": {"$regex": q, "$options": "i"}},
-        {"codigo": {"$regex": q, "$options": "i"}},
-    ]
-    if q.isdigit():
-        ors.append({"id": int(q)})
-        ors.append({"id": q})
-    if ObjectId.is_valid(q):
-        ors.append({"_id": ObjectId(q)})
-    base_query: Dict[str, Any] = {"$or": ors}
+    base_query: Dict[str, Any] = {}
+    if q:
+        ors: List[Dict[str, Any]] = [
+            {"nome": {"$regex": q, "$options": "i"}},
+            {"codigo": {"$regex": q, "$options": "i"}},
+        ]
+        if q.isdigit():
+            ors.append({"id": int(q)})
+            ors.append({"id": q})
+        if ObjectId.is_valid(q):
+            ors.append({"_id": ObjectId(q)})
+        base_query = {"$or": ors}
     if role in ("admin_central", "gerente_almox", "resp_sub_almox"):
         allowed = await _allowed_central_ids_for_user(user)
         if not allowed:
             return []
-        base_query = {"$and": [base_query, {"central_id": {"$in": allowed}}]}
-    cursor = db.db.produtos.find(base_query, {"nome": 1, "codigo": 1, "unidade_medida": 1, "categoria": 1, "id": 1}).limit(limit)
-    docs = await cursor.to_list(length=limit)
-    results = []
-    for p in docs:
-        pid = _public_id(p) or str(p.get("_id"))
-        results.append({
-            "id": pid,
-            "nome": p.get("nome"),
-            "codigo": p.get("codigo"),
-            "unidade": p.get("unidade_medida"),
-            "categoria": p.get("categoria"),
-        })
-    return results
+        if base_query:
+            base_query = {"$and": [base_query, {"central_id": {"$in": allowed}}]}
+        else:
+            base_query = {"central_id": {"$in": allowed}}
+
+    projection = {"nome": 1, "codigo": 1, "unidade_medida": 1, "categoria": 1, "id": 1, "updated_at": 1}
+    seen: set[str] = set()
+    results: List[Dict[str, Any]] = []
+    skip = (page - 1) * limit
+
+    for attempt in range(5):
+        cursor = (
+            db.db.produtos.find(base_query, projection)
+            .sort([("updated_at", -1), ("nome", 1)])
+            .skip(skip + (attempt * limit))
+            .limit(min(500, limit * 5))
+        )
+        docs = await cursor.to_list(length=min(500, limit * 5))
+        if not docs:
+            break
+
+        for p in docs:
+            key = str(p.get("codigo") or p.get("id") or p.get("_id"))
+            if key in seen:
+                continue
+            seen.add(key)
+            pid = _public_id(p) or str(p.get("_id"))
+            results.append({
+                "id": pid,
+                "nome": p.get("nome"),
+                "codigo": p.get("codigo"),
+                "unidade": p.get("unidade_medida"),
+                "categoria": p.get("categoria"),
+            })
+            if len(results) >= limit:
+                break
+
+        if len(results) >= limit:
+            break
+        if len(docs) < min(500, limit * 5):
+            break
+
+    return results[:limit]
 
 # --- Rota de Detalhes do Produto ---
 @app.get("/api/produtos/{produto_id}", response_model=ProdutoDetalhes)
@@ -505,7 +579,18 @@ async def get_produto_detalhes(produto_id: str, user: Dict[str, Any] = Depends(g
     if not produto:
         raise HTTPException(status_code=404, detail="Produto não encontrado")
         
-    pid = produto.get("id") if produto.get("id") else str(produto.get("_id"))
+    pid_raw = produto.get("id") if produto.get("id") is not None else str(produto.get("_id"))
+    pid_candidates: List[Any] = []
+    for v in [pid_raw, str(pid_raw), produto.get("_id"), str(produto.get("_id")), produto_id]:
+        if v is None:
+            continue
+        s = str(v)
+        pid_candidates.append(s)
+        if s.isdigit():
+            pid_candidates.append(int(s))
+        if ObjectId.is_valid(s):
+            pid_candidates.append(ObjectId(s))
+    pid_candidates = list(dict.fromkeys(pid_candidates))
     
     # Resolver Categoria (se houver ID)
     cat_nome = "Sem Categoria"
@@ -518,26 +603,43 @@ async def get_produto_detalhes(produto_id: str, user: Dict[str, Any] = Depends(g
         cat = await db.db.categorias.find_one(cat_q)
         if cat: cat_nome = cat.get("nome")
 
+    lotes_docs: List[Dict[str, Any]] = []
+    try:
+        lotes_cursor = db.db.lotes.find({"produto_id": {"$in": pid_candidates}}).sort("updated_at", -1).limit(50)
+        lotes_docs = await lotes_cursor.to_list(length=20)
+    except Exception:
+        lotes_docs = []
+
     # 2. Buscar Estoque por Local
-    estoque_cursor = db.db.estoques.find({"produto_id": pid})
+    estoque_cursor = db.db.estoques.find({"produto_id": {"$in": pid_candidates}})
     estoques = await estoque_cursor.to_list(length=100)
     
     total = 0.0
-    locais = []
+    locais_agg: Dict[str, Dict[str, Any]] = {}
     
     # Prepara IDs para resolver nomes dos locais
     loc_ids = {"centrais": set(), "almoxarifados": set(), "setores": set(), "sub_almoxarifados": set()}
     for e in estoques:
-        if e.get("sub_almoxarifado_id") or e.get("local_tipo") == "sub_almoxarifado":
+        lt = (str(e.get("local_tipo") or "")).strip().lower()
+        if e.get("sub_almoxarifado_id") or lt == "sub_almoxarifado":
             loc_ids["sub_almoxarifados"].add(e.get("sub_almoxarifado_id") or e.get("local_id"))
-        elif e.get("setor_id") or e.get("local_tipo") == "setor":
+        elif e.get("setor_id") or lt == "setor":
             loc_ids["setores"].add(e.get("setor_id") or e.get("local_id"))
-        elif e.get("almoxarifado_id") or e.get("local_tipo") == "almoxarifado":
+        elif e.get("almoxarifado_id") or lt == "almoxarifado":
             loc_ids["almoxarifados"].add(e.get("almoxarifado_id") or e.get("local_id"))
-        elif e.get("central_id") or e.get("local_tipo") == "central":
+        elif e.get("central_id") or lt == "central":
             loc_ids["centrais"].add(e.get("central_id") or e.get("local_id"))
+    for l in lotes_docs:
+        lt = (str(l.get("local_tipo") or "")).strip().lower()
+        if l.get("sub_almoxarifado_id") or lt == "sub_almoxarifado":
+            loc_ids["sub_almoxarifados"].add(l.get("sub_almoxarifado_id") or l.get("local_id"))
+        elif l.get("setor_id") or lt == "setor":
+            loc_ids["setores"].add(l.get("setor_id") or l.get("local_id"))
+        elif l.get("almoxarifado_id") or lt == "almoxarifado":
+            loc_ids["almoxarifados"].add(l.get("almoxarifado_id") or l.get("local_id"))
+        elif l.get("central_id") or lt == "central":
+            loc_ids["centrais"].add(l.get("central_id") or l.get("local_id"))
         
-    # Helper fetch_map_simple deve estar no escopo global ou redefinido
     async def fetch_map_simple(coll, ids):
         if not ids: return {}
         q_ids = []
@@ -560,44 +662,81 @@ async def get_produto_detalhes(produto_id: str, user: Dict[str, Any] = Depends(g
     }
     
     for e in estoques:
-        qtd = float(e.get("quantidade_atual", 0) or e.get("quantidade", 0))
-        disp = float(e.get("quantidade_disponivel", qtd) or 0)
+        qtd_raw = e.get("quantidade")
+        if qtd_raw is None:
+            qtd_raw = e.get("quantidade_atual")
+        try:
+            qtd = float(qtd_raw or 0)
+        except (TypeError, ValueError):
+            qtd = 0.0
+
+        disp_raw = e.get("quantidade_disponivel")
+        if disp_raw is None:
+            disp_raw = qtd
+        try:
+            disp = float(disp_raw or 0)
+        except (TypeError, ValueError):
+            disp = float(qtd)
+
         total += qtd
         
         l_nome = "Desconhecido"
-        l_tipo = e.get("local_tipo", "outro")
-        l_id = e.get("local_id")
+        l_tipo = (str(e.get("local_tipo") or "")).strip().lower() or "outro"
+        l_id: Optional[str] = _norm_id(e.get("local_id"))
         
         if e.get("sub_almoxarifado_id") or l_tipo == "sub_almoxarifado":
             sid = e.get("sub_almoxarifado_id") or e.get("local_id")
-            l = loc_maps["sub_almoxarifados"].get(str(sid), {})
+            l = loc_maps["sub_almoxarifados"].get(str(sid), {}) if sid is not None else {}
             l_nome = l.get("nome", "Sub-Almoxarifado")
             l_tipo = "sub_almoxarifado"
-            l_id = sid
+            l_id = _public_id(l) or (str(l.get("_id")) if l.get("_id") is not None else None) or _norm_id(sid)
         elif e.get("setor_id") or l_tipo == "setor":
             sid = e.get("setor_id") or e.get("local_id")
-            l = loc_maps["setores"].get(str(sid), {})
+            l = loc_maps["setores"].get(str(sid), {}) if sid is not None else {}
             l_nome = l.get("nome", "Setor")
             l_tipo = "setor"
-            l_id = sid
+            l_id = _public_id(l) or (str(l.get("_id")) if l.get("_id") is not None else None) or _norm_id(sid)
         elif e.get("almoxarifado_id") or l_tipo == "almoxarifado":
             aid = e.get("almoxarifado_id") or e.get("local_id")
-            l = loc_maps["almoxarifados"].get(str(aid), {})
+            l = loc_maps["almoxarifados"].get(str(aid), {}) if aid is not None else {}
             l_nome = l.get("nome", "Almoxarifado")
             l_tipo = "almoxarifado"
-            l_id = aid
+            l_id = _public_id(l) or (str(l.get("_id")) if l.get("_id") is not None else None) or _norm_id(aid)
+        elif e.get("central_id") or l_tipo == "central":
+            cid = e.get("central_id") or e.get("local_id")
+            l = loc_maps["centrais"].get(str(cid), {}) if cid is not None else {}
+            l_nome = l.get("nome", "Central")
+            l_tipo = "central"
+            l_id = _public_id(l) or (str(l.get("_id")) if l.get("_id") is not None else None) or _norm_id(cid)
             
-        locais.append({
-            "local_id": str(l_id) if l_id is not None else None,
-            "local_nome": l_nome,
-            "local_tipo": l_tipo,
-            "quantidade": qtd,
-            "quantidade_disponivel": disp,
-            "updated_at": _dt_to_utc_iso(e.get("updated_at") or e.get("created_at") or _now_utc())
-        })
+        updated_at = e.get("updated_at") or e.get("created_at") or _now_utc()
+        key = f"{str(l_tipo)}:{str(l_id) if l_id is not None else ''}"
+        prev = locais_agg.get(key)
+        if not prev:
+            locais_agg[key] = {
+                "local_id": str(l_id) if l_id is not None else None,
+                "local_nome": l_nome,
+                "local_tipo": l_tipo,
+                "quantidade": float(qtd),
+                "quantidade_disponivel": float(disp),
+                "updated_at": updated_at,
+            }
+        else:
+            prev["quantidade"] = float(prev.get("quantidade") or 0) + float(qtd)
+            prev["quantidade_disponivel"] = float(prev.get("quantidade_disponivel") or 0) + float(disp)
+            prev_dt = prev.get("updated_at")
+            try:
+                if isinstance(prev_dt, datetime) and isinstance(updated_at, datetime):
+                    if updated_at > prev_dt:
+                        prev["updated_at"] = updated_at
+                else:
+                    prev["updated_at"] = updated_at
+            except Exception:
+                prev["updated_at"] = updated_at
+            prev["local_nome"] = l_nome or prev.get("local_nome")
         
     # 3. Buscar Histórico Recente
-    hist_cursor = db.db.movimentacoes.find({"produto_id": pid}).sort("data_movimentacao", -1).limit(5)
+    hist_cursor = db.db.movimentacoes.find({"produto_id": {"$in": pid_candidates}}).sort("data_movimentacao", -1).limit(5)
     historico = await hist_cursor.to_list(length=5)
     hist_formatado = []
     
@@ -613,21 +752,53 @@ async def get_produto_detalhes(produto_id: str, user: Dict[str, Any] = Depends(g
 
     # 4. Buscar Lotes (se houver coleção de lotes)
     lotes_list = []
-    try:
-        lotes_cursor = db.db.lotes.find({"produto_id": pid}).sort("updated_at", -1).limit(50)
-        lotes_docs = await lotes_cursor.to_list(length=20)
-        for l in lotes_docs:
-            validade = l.get("data_validade")
-            lotes_list.append({
-                "id": _public_id(l) or str(l.get("_id")),
-                "numero": l.get("numero_lote"),
-                "validade": _dt_to_utc_iso(validade),
-                "quantidade": l.get("quantidade_atual"),
-                "preco_unitario": l.get("preco_unitario"),
-                "status": "Vencido" if _is_expired(validade) else "Ok"
-            })
-    except Exception:
-        pass # Coleção pode não existir ainda
+    for l in lotes_docs:
+        validade = l.get("data_validade")
+
+        l_nome = "Desconhecido"
+        l_tipo = l.get("local_tipo", "outro")
+        l_id = l.get("local_id")
+        if l.get("sub_almoxarifado_id") or l_tipo == "sub_almoxarifado":
+            sid = l.get("sub_almoxarifado_id") or l.get("local_id")
+            lm = loc_maps["sub_almoxarifados"].get(str(sid), {})
+            l_nome = lm.get("nome", "Sub-Almoxarifado")
+            l_tipo = "sub_almoxarifado"
+            l_id = sid
+        elif l.get("setor_id") or l_tipo == "setor":
+            sid = l.get("setor_id") or l.get("local_id")
+            lm = loc_maps["setores"].get(str(sid), {})
+            l_nome = lm.get("nome", "Setor")
+            l_tipo = "setor"
+            l_id = sid
+        elif l.get("almoxarifado_id") or l_tipo == "almoxarifado":
+            aid = l.get("almoxarifado_id") or l.get("local_id")
+            lm = loc_maps["almoxarifados"].get(str(aid), {})
+            l_nome = lm.get("nome", "Almoxarifado")
+            l_tipo = "almoxarifado"
+            l_id = aid
+        elif l.get("central_id") or l_tipo == "central":
+            cid = l.get("central_id") or l.get("local_id")
+            lm = loc_maps["centrais"].get(str(cid), {})
+            l_nome = lm.get("nome", "Central")
+            l_tipo = "central"
+            l_id = cid
+
+        lotes_list.append({
+            "id": _public_id(l) or str(l.get("_id")),
+            "numero": str(l.get("numero_lote") or ""),
+            "validade": _dt_to_utc_iso(validade),
+            "quantidade": l.get("quantidade_atual"),
+            "preco_unitario": l.get("preco_unitario"),
+            "status": "Vencido" if _is_expired(validade) else "Ok",
+            "local_id": str(l_id) if l_id is not None else None,
+            "local_nome": l_nome,
+            "local_tipo": l_tipo,
+        })
+
+    locais = list(locais_agg.values())
+    locais.sort(key=lambda x: (str(x.get("local_tipo") or ""), str(x.get("local_nome") or "")))
+    for loc in locais:
+        loc["updated_at"] = _dt_to_utc_iso(loc.get("updated_at"))
 
     return {
         "id": str(produto.get("_id")),
@@ -643,6 +814,59 @@ async def get_produto_detalhes(produto_id: str, user: Dict[str, Any] = Depends(g
         "lotes": lotes_list
     }
 
+@app.post("/api/produtos/{produto_id}/limpar_dados_sem_lotes")
+async def limpar_dados_sem_lotes(
+    produto_id: str,
+    user: Dict[str, Any] = Depends(_require_roles(["super_admin", "admin_central", "gerente_almox", "resp_sub_almox"])),
+):
+    q: Dict[str, Any] = {}
+    if ObjectId.is_valid(produto_id):
+        q = {"_id": ObjectId(produto_id)}
+    elif produto_id.isdigit():
+        q = {"id": int(produto_id)}
+    else:
+        q = {"$or": [{"id": produto_id}, {"codigo": produto_id}]}
+
+    role = user.get("role")
+    if role in ("admin_central", "gerente_almox", "resp_sub_almox"):
+        allowed = await _allowed_central_ids_for_user(user)
+        if not allowed:
+            raise HTTPException(status_code=404, detail="Produto não encontrado")
+        q = {"$and": [q, {"central_id": {"$in": allowed}}]}
+
+    produto = await db.db.produtos.find_one(q, {"id": 1, "_id": 1, "observacoes": 1})
+    if not produto:
+        raise HTTPException(status_code=404, detail="Produto não encontrado")
+
+    pid_raw = produto.get("id") if produto.get("id") is not None else str(produto.get("_id"))
+    pid_candidates: List[Any] = []
+    for v in [pid_raw, str(pid_raw), produto.get("_id"), str(produto.get("_id")), produto_id]:
+        if v is None:
+            continue
+        s = str(v)
+        pid_candidates.append(s)
+        if s.isdigit():
+            pid_candidates.append(int(s))
+        if ObjectId.is_valid(s):
+            pid_candidates.append(ObjectId(s))
+    pid_candidates = list(dict.fromkeys(pid_candidates))
+
+    remaining = await db.db.lotes.count_documents({"produto_id": {"$in": pid_candidates}})
+    if remaining > 0:
+        raise HTTPException(status_code=400, detail="Produto ainda possui lotes")
+
+    await db.db.estoques.delete_many({"produto_id": {"$in": pid_candidates}})
+    await db.db.movimentacoes.delete_many({"produto_id": {"$in": pid_candidates}})
+
+    now = _now_utc()
+    note = f"[LIMPEZA] Estoques e movimentações apagados manualmente em {_dt_to_utc_iso(now)} por {user.get('id')}"
+    existing_obs = ""
+    if isinstance(produto.get("observacoes"), str):
+        existing_obs = produto.get("observacoes") or ""
+    new_obs = note if not existing_obs.strip() else f"{existing_obs.rstrip()}\n{note}"
+    await db.db.produtos.update_one({"_id": produto.get("_id")}, {"$set": {"observacoes": new_obs, "updated_at": now}})
+    return {"status": "success", "message": "Dados removidos"}
+
 @app.put("/api/lotes/{lote_id}")
 async def update_lote(lote_id: str, item: LoteUpdate, user: Dict[str, Any] = Depends(_require_roles(["super_admin", "admin_central", "gerente_almox", "resp_sub_almox"]))):
     q = _build_id_query(lote_id)
@@ -652,6 +876,11 @@ async def update_lote(lote_id: str, item: LoteUpdate, user: Dict[str, Any] = Dep
 
     update_data: Dict[str, Any] = {}
     changed = False
+    delta_estoque: Optional[float] = None
+    qty_change_old: Optional[float] = None
+    qty_change_new: Optional[float] = None
+    lote_local_tipo: Optional[str] = existing.get("local_tipo")
+    lote_local_id: Any = existing.get("local_id")
     if item.numero_lote is not None:
         numero = (item.numero_lote or "").strip()
         if not numero:
@@ -668,6 +897,14 @@ async def update_lote(lote_id: str, item: LoteUpdate, user: Dict[str, Any] = Dep
             raise HTTPException(status_code=400, detail="Quantidade inválida")
         if qv < 0:
             raise HTTPException(status_code=400, detail="Quantidade deve ser maior ou igual a zero")
+        old_raw = existing.get("quantidade_atual")
+        try:
+            old_qty = float(0 if old_raw is None else old_raw)
+        except (TypeError, ValueError):
+            old_qty = 0.0
+        delta_estoque = float(qv) - float(old_qty)
+        qty_change_old = float(old_qty)
+        qty_change_new = float(qv)
         update_data["quantidade_atual"] = qv
         changed = True
     if item.preco_unitario is not None:
@@ -683,7 +920,92 @@ async def update_lote(lote_id: str, item: LoteUpdate, user: Dict[str, Any] = Dep
     if not changed:
         raise HTTPException(status_code=400, detail="Nada para atualizar")
 
-    update_data["updated_at"] = _now_utc()
+    now = _now_utc()
+    update_data["updated_at"] = now
+
+    if delta_estoque is not None and abs(delta_estoque) > 0:
+        pid = existing.get("produto_id")
+        if pid is None:
+            raise HTTPException(status_code=400, detail="Lote sem produto_id")
+
+        if not lote_local_tipo:
+            sub_id = existing.get("sub_almoxarifado_id")
+            almox_id = existing.get("almoxarifado_id")
+            if sub_id is not None:
+                lote_local_tipo = "sub_almoxarifado"
+                if lote_local_id is None:
+                    lote_local_id = sub_id
+            elif almox_id is not None:
+                lote_local_tipo = "almoxarifado"
+                if lote_local_id is None:
+                    lote_local_id = almox_id
+
+        if lote_local_tipo and lote_local_id is not None:
+            def _candidates(value: Any) -> List[Any]:
+                out: List[Any] = []
+                if value is None:
+                    return out
+                s = str(value)
+                out.append(s)
+                if s.isdigit():
+                    out.append(int(s))
+                if ObjectId.is_valid(s):
+                    out.append(ObjectId(s))
+                return list(dict.fromkeys(out))
+
+            pid_vals = _candidates(pid)
+            lid_vals = _candidates(lote_local_id)
+
+            estoque = await db.db.estoques.find_one({"produto_id": {"$in": pid_vals}, "local_tipo": lote_local_tipo, "local_id": {"$in": lid_vals}})
+            if not estoque and lote_local_tipo == "almoxarifado":
+                estoque = await db.db.estoques.find_one({"produto_id": {"$in": pid_vals}, "almoxarifado_id": {"$in": lid_vals}})
+            if not estoque and lote_local_tipo == "sub_almoxarifado":
+                estoque = await db.db.estoques.find_one({"produto_id": {"$in": pid_vals}, "sub_almoxarifado_id": {"$in": lid_vals}})
+
+            if estoque:
+                qtd_raw = estoque.get("quantidade")
+                if qtd_raw is None:
+                    qtd_raw = estoque.get("quantidade_atual")
+                try:
+                    estoque_qtd = float(qtd_raw or 0)
+                except (TypeError, ValueError):
+                    estoque_qtd = 0.0
+                disp_raw = estoque.get("quantidade_disponivel")
+                try:
+                    estoque_disp = float(estoque_qtd if disp_raw is None else (disp_raw or 0))
+                except (TypeError, ValueError):
+                    estoque_disp = float(estoque_qtd)
+
+                next_qtd = float(estoque_qtd) + float(delta_estoque)
+                next_disp = float(estoque_disp) + float(delta_estoque)
+                if next_qtd < 0 or next_disp < 0:
+                    raise HTTPException(status_code=400, detail="Ajuste de lote deixa estoque negativo")
+
+                await db.db.estoques.update_one(
+                    {"_id": estoque.get("_id")},
+                    {"$inc": {"quantidade": float(delta_estoque), "quantidade_atual": float(delta_estoque), "quantidade_disponivel": float(delta_estoque)}, "$set": {"updated_at": now}},
+                )
+            else:
+                if float(delta_estoque) < 0:
+                    raise HTTPException(status_code=400, detail="Não há estoque correspondente para reduzir")
+                almox_id = existing.get("almoxarifado_id")
+                sub_id = existing.get("sub_almoxarifado_id")
+                estoque_set: Dict[str, Any] = {
+                    "produto_id": str(pid),
+                    "local_tipo": lote_local_tipo,
+                    "local_id": str(lote_local_id),
+                    "almoxarifado_id": str(almox_id) if almox_id is not None else None,
+                    "sub_almoxarifado_id": str(sub_id) if sub_id is not None else None,
+                    "updated_at": now,
+                }
+                await db.db.estoques.update_one(
+                    {"produto_id": str(pid), "local_tipo": lote_local_tipo, "local_id": str(lote_local_id)},
+                    {"$inc": {"quantidade": float(delta_estoque), "quantidade_atual": float(delta_estoque), "quantidade_disponivel": float(delta_estoque)}, "$set": estoque_set, "$setOnInsert": {"created_at": now}},
+                    upsert=True,
+                )
+
+            update_data.setdefault("local_tipo", lote_local_tipo)
+            update_data.setdefault("local_id", str(lote_local_id))
 
     if not update_data:
         raise HTTPException(status_code=400, detail="Nada para atualizar")
@@ -694,7 +1016,200 @@ async def update_lote(lote_id: str, item: LoteUpdate, user: Dict[str, Any] = Dep
         raise HTTPException(status_code=400, detail="Número do lote já existe para este produto")
     if res.matched_count == 0:
         raise HTTPException(status_code=404, detail="Lote não encontrado")
+
+    role = (user.get("role") or "").strip()
+    if role in ("admin_central", "gerente_almox", "resp_sub_almox") and qty_change_old is not None and qty_change_new is not None:
+        if abs(float(qty_change_new) - float(qty_change_old)) > 0:
+            pid = existing.get("produto_id")
+            if pid is not None:
+                pid_vals = await _produto_id_candidates(pid)
+                prod_ors: List[Dict[str, Any]] = []
+                for v in pid_vals:
+                    sv = str(v)
+                    if ObjectId.is_valid(sv):
+                        prod_ors.append({"_id": ObjectId(sv)})
+                    if sv.isdigit():
+                        prod_ors.append({"id": int(sv)})
+                    prod_ors.append({"id": sv})
+                    prod_ors.append({"codigo": sv})
+
+                if prod_ors:
+                    numero_after = (update_data.get("numero_lote") or existing.get("numero_lote") or existing.get("lote") or "").strip()
+                    now_note = _now_utc()
+                    when = _dt_to_utc_iso(now_note)
+                    note = f"[LOTE] Quantidade do lote \"{numero_after}\" alterada de {qty_change_old:g} para {qty_change_new:g} em {when} por {user.get('id')}"
+                    prod = await db.db.produtos.find_one({"$or": prod_ors}, {"observacoes": 1})
+                    if prod:
+                        existing_obs = prod.get("observacoes") if isinstance(prod.get("observacoes"), str) else ""
+                        existing_obs = existing_obs or ""
+                        new_obs = note if not existing_obs.strip() else f"{existing_obs.rstrip()}\n{note}"
+                        await db.db.produtos.update_one({"_id": prod.get("_id")}, {"$set": {"observacoes": new_obs, "updated_at": now_note}})
+
     return {"status": "success", "message": "Lote atualizado"}
+
+@app.delete("/api/lotes/{lote_id}")
+async def delete_lote(
+    lote_id: str,
+    purge_produto: bool = Query(False),
+    user: Dict[str, Any] = Depends(_require_roles(["super_admin", "admin_central", "gerente_almox", "resp_sub_almox"])),
+):
+    q = _build_id_query(lote_id)
+    existing = await db.db.lotes.find_one(q)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Lote não encontrado")
+    is_super_admin = (user.get("role") or "").strip() == "super_admin"
+
+    qtd_raw = existing.get("quantidade_atual")
+    if qtd_raw is None:
+        qtd_raw = existing.get("quantidade")
+    try:
+        qtd = float(qtd_raw or 0)
+    except (TypeError, ValueError):
+        qtd = 0.0
+
+    pid = existing.get("produto_id")
+    if pid is None:
+        raise HTTPException(status_code=400, detail="Lote sem produto_id")
+
+    lote_numero = (existing.get("numero_lote") or existing.get("lote") or "").strip()
+
+    lote_local_tipo: Optional[str] = existing.get("local_tipo")
+    lote_local_id: Any = existing.get("local_id")
+    if not lote_local_tipo:
+        sub_id = existing.get("sub_almoxarifado_id")
+        almox_id = existing.get("almoxarifado_id")
+        if sub_id is not None:
+            lote_local_tipo = "sub_almoxarifado"
+            if lote_local_id is None:
+                lote_local_id = sub_id
+        elif almox_id is not None:
+            lote_local_tipo = "almoxarifado"
+            if lote_local_id is None:
+                lote_local_id = almox_id
+
+    if float(qtd) > 0:
+        if not lote_local_tipo or lote_local_id is None:
+            raise HTTPException(status_code=400, detail="Lote sem local para ajustar estoque")
+
+        pid_vals = await _produto_id_candidates(pid)
+        lid_vals = _id_candidates(lote_local_id)
+
+        estoque = await db.db.estoques.find_one({"produto_id": {"$in": pid_vals}, "local_tipo": lote_local_tipo, "local_id": {"$in": lid_vals}})
+        if not estoque and lote_local_tipo == "almoxarifado":
+            estoque = await db.db.estoques.find_one({"produto_id": {"$in": pid_vals}, "almoxarifado_id": {"$in": lid_vals}})
+        if not estoque and lote_local_tipo == "sub_almoxarifado":
+            estoque = await db.db.estoques.find_one({"produto_id": {"$in": pid_vals}, "sub_almoxarifado_id": {"$in": lid_vals}})
+
+        if not estoque:
+            if not is_super_admin:
+                raise HTTPException(status_code=400, detail="Não há estoque correspondente para excluir o lote")
+            estoque = None
+        if estoque:
+            qtd_e_raw = estoque.get("quantidade")
+            if qtd_e_raw is None:
+                qtd_e_raw = estoque.get("quantidade_atual")
+            try:
+                estoque_qtd = float(qtd_e_raw or 0)
+            except (TypeError, ValueError):
+                estoque_qtd = 0.0
+
+            qtd_a_raw = estoque.get("quantidade_atual")
+            if qtd_a_raw is None:
+                qtd_a_raw = estoque.get("quantidade")
+            try:
+                estoque_qtd_atual = float(qtd_a_raw or 0)
+            except (TypeError, ValueError):
+                estoque_qtd_atual = estoque_qtd
+
+            disp_raw = estoque.get("quantidade_disponivel")
+            try:
+                estoque_disp = float(estoque_qtd if disp_raw is None else (disp_raw or 0))
+            except (TypeError, ValueError):
+                estoque_disp = estoque_qtd
+
+            next_qtd = float(estoque_qtd) - float(qtd)
+            next_qtd_atual = float(estoque_qtd_atual) - float(qtd)
+            next_disp = float(estoque_disp) - float(qtd)
+            if next_qtd < 0 or next_qtd_atual < 0 or next_disp < 0:
+                if not is_super_admin:
+                    raise HTTPException(status_code=400, detail="Excluir lote deixa estoque negativo")
+                next_qtd = max(0.0, next_qtd)
+                next_qtd_atual = max(0.0, next_qtd_atual)
+                next_disp = max(0.0, next_disp)
+
+            now = _now_utc()
+            if is_super_admin and (next_qtd == 0.0 or next_qtd_atual == 0.0 or next_disp == 0.0):
+                await db.db.estoques.update_one(
+                    {"_id": estoque.get("_id")},
+                    {"$set": {"quantidade": float(next_qtd), "quantidade_atual": float(next_qtd_atual), "quantidade_disponivel": float(next_disp), "updated_at": now}},
+                )
+            else:
+                await db.db.estoques.update_one(
+                    {"_id": estoque.get("_id")},
+                    {"$inc": {"quantidade": -float(qtd), "quantidade_atual": -float(qtd), "quantidade_disponivel": -float(qtd)}, "$set": {"updated_at": now}},
+                )
+
+    res = await db.db.lotes.delete_one({"_id": existing.get("_id")})
+    if res.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Lote não encontrado")
+
+    pid_vals = await _produto_id_candidates(pid)
+    if lote_numero:
+        await db.db.movimentacoes.delete_many({"produto_id": {"$in": pid_vals}, "tipo": "entrada", "lote": lote_numero})
+
+    remaining = await db.db.lotes.count_documents({"produto_id": {"$in": pid_vals}})
+    if remaining == 0:
+        await db.db.estoques.delete_many({"produto_id": {"$in": pid_vals}})
+        await db.db.movimentacoes.delete_many({"produto_id": {"$in": pid_vals}})
+
+        prod_ors: List[Dict[str, Any]] = []
+        for v in pid_vals:
+            sv = str(v)
+            if ObjectId.is_valid(sv):
+                prod_ors.append({"_id": ObjectId(sv)})
+            if sv.isdigit():
+                prod_ors.append({"id": int(sv)})
+                prod_ors.append({"id": sv})
+            prod_ors.append({"id": sv})
+        if prod_ors:
+            now = _now_utc()
+            note = f"[LIMPEZA] Dados (estoques/movimentações) removidos após exclusão do último lote em {_dt_to_utc_iso(now)} por {user.get('id')}"
+            prod = await db.db.produtos.find_one({"$or": prod_ors}, {"observacoes": 1})
+            existing_obs = ""
+            if prod and isinstance(prod.get("observacoes"), str):
+                existing_obs = prod.get("observacoes") or ""
+            new_obs = note if not existing_obs.strip() else f"{existing_obs.rstrip()}\n{note}"
+            await db.db.produtos.update_one({"$or": prod_ors}, {"$set": {"observacoes": new_obs, "updated_at": now}})
+
+    if purge_produto:
+        if not is_super_admin:
+            raise HTTPException(status_code=403, detail="Acesso negado")
+
+        pid_vals = await _produto_id_candidates(pid)
+        await db.db.estoques.delete_many({"produto_id": {"$in": pid_vals}})
+        await db.db.movimentacoes.delete_many({"produto_id": {"$in": pid_vals}})
+
+        prod_ors: List[Dict[str, Any]] = []
+        for v in pid_vals:
+            sv = str(v)
+            if ObjectId.is_valid(sv):
+                prod_ors.append({"_id": ObjectId(sv)})
+            if sv.isdigit():
+                prod_ors.append({"id": int(sv)})
+                prod_ors.append({"id": sv})
+            prod_ors.append({"id": sv})
+
+        if prod_ors:
+            now = _now_utc()
+            note = f"[LIMPEZA] Estoques e movimentações apagados em {_dt_to_utc_iso(now)} por {user.get('id')}"
+            prod = await db.db.produtos.find_one({"$or": prod_ors}, {"observacoes": 1})
+            existing_obs = ""
+            if prod and isinstance(prod.get("observacoes"), str):
+                existing_obs = prod.get("observacoes") or ""
+            new_obs = note if not existing_obs.strip() else f"{existing_obs.rstrip()}\n{note}"
+            await db.db.produtos.update_one({"$or": prod_ors}, {"$set": {"observacoes": new_obs, "updated_at": now}})
+
+    return {"status": "success", "message": "Lote removido"}
 
 @app.get("/api/dashboard/stats")
 async def get_dashboard_stats(user: Dict[str, Any] = Depends(get_current_user)):
@@ -811,13 +1326,45 @@ async def get_movimentacoes(
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
     tipo: Optional[str] = None,
-    produto: Optional[str] = None
+    produto: Optional[str] = None,
+    user: Dict[str, Any] = Depends(get_current_user),
 ):
     skip = (page - 1) * per_page
-    query = {}
+    query: Dict[str, Any] = {}
+
+    role = (user.get("role") or "").strip()
+    scope_id = _norm_id(user.get("scope_id"))
+    allowed_central: List[Any] = []
+    if role != "super_admin":
+        central_id = await _compute_user_central_id(role, scope_id, None, strict=False)
+        for v in [central_id]:
+            if not v:
+                continue
+            allowed_central.append(v)
+            if str(v).isdigit():
+                allowed_central.append(int(str(v)))
+            if ObjectId.is_valid(str(v)):
+                allowed_central.append(ObjectId(str(v)))
+        allowed_central = list(dict.fromkeys(allowed_central))
+        if not allowed_central:
+            return {"items": [], "pagination": {"page": page, "total": 0, "pages": 1}}
+        prod_docs = await db.db.produtos.find({"central_id": {"$in": allowed_central}}, {"_id": 1, "id": 1}).to_list(length=20000)
+        p_ids: List[Any] = []
+        for p in prod_docs:
+            if p.get("_id") is not None:
+                p_ids.append(p.get("_id"))
+                p_ids.append(str(p.get("_id")))
+            if p.get("id") is not None:
+                p_ids.append(p.get("id"))
+                p_ids.append(str(p.get("id")))
+        p_ids = list(dict.fromkeys(p_ids))
+        scope_filter: Dict[str, Any] = {"$or": [{"central_id": {"$in": allowed_central}}]}
+        if p_ids:
+            scope_filter["$or"].append({"produto_id": {"$in": p_ids}})
+        query = {"$and": [query, scope_filter]} if query else scope_filter
     
     if tipo:
-        query["tipo"] = tipo
+        query = {"$and": [query, {"tipo": tipo}]} if query else {"tipo": tipo}
         
     if produto:
          # Busca produto primeiro para filtrar por ID
@@ -827,8 +1374,11 @@ async def get_movimentacoes(
         ]}
         if ObjectId.is_valid(produto):
             prod_query["$or"].append({"_id": ObjectId(produto)})
-            
-        prods = await db.db.produtos.find(prod_query, {"_id": 1, "id": 1}).to_list(length=100)
+
+        if role != "super_admin" and allowed_central:
+            prod_query = {"$and": [prod_query, {"central_id": {"$in": allowed_central}}]}
+
+        prods = await db.db.produtos.find(prod_query, {"_id": 1, "id": 1}).to_list(length=2000)
         p_ids = []
         for p in prods:
             p_ids.append(p.get("_id"))
@@ -836,7 +1386,7 @@ async def get_movimentacoes(
             if p.get("id"): p_ids.append(p.get("id"))
             
         if p_ids:
-            query["produto_id"] = {"$in": p_ids}
+            query = {"$and": [query, {"produto_id": {"$in": p_ids}}]} if query else {"produto_id": {"$in": p_ids}}
         else:
             return {"items": [], "pagination": {"total": 0, "page": page}}
 
@@ -1797,6 +2347,7 @@ async def post_entrada(req: EntradaRequest, user: Dict[str, Any] = Depends(get_c
         'observacoes': req.observacoes,
         'nota_fiscal': req.nota_fiscal,
         'lote': req.lote,
+        'central_id': _norm_id(produto.get("central_id")) if produto else None,
         'local_tipo': destino_tipo,
         'local_id': destino_out,
         'created_at': now
@@ -1812,9 +2363,13 @@ async def post_entrada(req: EntradaRequest, user: Dict[str, Any] = Depends(get_c
             'numero_lote': req.lote,
             'lote': req.lote,
             'data_validade': req.data_validade,
+            'local_tipo': destino_tipo,
+            'local_id': destino_out,
             'almoxarifado_id': almox_id_out,
             'updated_at': now
         }
+        if destino_tipo == "sub_almoxarifado":
+            lote_set["sub_almoxarifado_id"] = sub_id_out
         if req.preco_unitario is not None:
             lote_set['preco_unitario'] = float(req.preco_unitario)
         lote_update = {
@@ -3033,6 +3588,7 @@ async def post_distribuicao(req: MovimentacaoRequest, user: Dict[str, Any] = Dep
         'destino_nome': destino_nome,
         'usuario_responsavel': user.get("id"),
         'observacoes': req.observacoes,
+        'central_id': _norm_id(produto.get("central_id")) if produto else None,
         'local_origem_id': oid_out,
         'local_destino_id': did_out,
         'local_origem_tipo': origem_tipo,
@@ -3094,6 +3650,7 @@ async def post_consumo_setor(req: SetorConsumoRequest, user: Dict[str, Any] = De
         "destino_nome": "Consumo",
         "usuario_responsavel": user.get("id"),
         "observacoes": req.observacoes,
+        "central_id": _norm_id(produto.get("central_id")) if produto else None,
         "local_origem_id": setor_id,
         "local_origem_tipo": "setor",
         "local_destino_id": None,
@@ -3408,6 +3965,7 @@ async def atender_demanda(demanda_id: str, req: DemandaAtenderRequest, user: Dic
             "destino_nome": setor_doc.get("nome") or "Setor",
             "usuario_responsavel": user.get("id"),
             "observacoes": obs,
+            "central_id": _norm_id(demanda.get("central_id")),
             "local_origem_id": origem_id_out,
             "local_destino_id": setor_id,
             "local_origem_tipo": origem_tipo,

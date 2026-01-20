@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ArrowLeftRight, Search, Calendar, Download } from 'lucide-react';
 import { apiUrl } from '@/lib/api';
+import { useAuth } from '@/context/AuthContext';
+import { useRouter } from 'next/navigation';
 
 // Tipagem
 interface Movimentacao {
@@ -27,6 +29,8 @@ interface MovimentacaoResponse {
 }
 
 export default function MovimentacoesPage() {
+  const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
   const [data, setData] = useState<MovimentacaoResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -34,13 +38,17 @@ export default function MovimentacoesPage() {
   const [searchTerm, setSearchTerm] = useState('');
 
   const fetchData = useCallback(async () => {
+    if (!user?.id) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       let url = apiUrl(`/api/movimentacoes?page=${page}&per_page=15`);
       if (filterTipo) url += `&tipo=${filterTipo}`;
       if (searchTerm) url += `&produto=${searchTerm}`;
       
-      const res = await fetch(url);
+      const res = await fetch(url, { headers: { 'X-User-Id': user.id } });
       if (!res.ok) throw new Error('Erro ao carregar');
       const json = await res.json();
       setData(json);
@@ -49,12 +57,17 @@ export default function MovimentacoesPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, filterTipo, searchTerm]);
+  }, [filterTipo, page, searchTerm, user?.id]);
 
   useEffect(() => {
+    if (authLoading) return;
+    if (!user?.id) {
+      router.replace('/login');
+      return;
+    }
     const timer = setTimeout(() => fetchData(), 300);
     return () => clearTimeout(timer);
-  }, [fetchData]);
+  }, [authLoading, fetchData, router, user?.id]);
 
   // Formatar data
   const formatDate = (dateStr: string) => {

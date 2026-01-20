@@ -67,6 +67,34 @@ export default function DemandaDetalhePage({ params }: { params: Promise<{ id: s
   const [observacoes, setObservacoes] = useState('');
   const [qtyByProdutoId, setQtyByProdutoId] = useState<Record<string, string>>({});
 
+  const mergeProdutos = useCallback((incoming: Record<string, ProdutoInfo>) => {
+    setProdutos(prev => {
+      const next: Record<string, ProdutoInfo> = { ...prev };
+      for (const [pid, info] of Object.entries(incoming)) {
+        const prevInfo = next[pid];
+        const prevNome = prevInfo?.nome;
+        const prevCodigo = prevInfo?.codigo;
+        const nextNome = info?.nome;
+        const nextCodigo = info?.codigo;
+
+        const prevNomeIsPlaceholder = !prevNome || prevNome === pid;
+        const nextNomeIsReal = !!nextNome && nextNome !== pid;
+        const nextCodigoIsReal = !!nextCodigo && nextCodigo !== '-';
+
+        if (!prevInfo) {
+          next[pid] = { id: pid, nome: nextNome || pid, codigo: nextCodigo || '-' };
+          continue;
+        }
+
+        const nome = nextNomeIsReal ? nextNome : prevInfo.nome;
+        const codigo = nextCodigoIsReal ? nextCodigo : prevCodigo;
+        if (nextNomeIsReal || prevNomeIsPlaceholder) next[pid] = { ...prevInfo, id: pid, nome, codigo };
+        else if (nextCodigoIsReal && codigo !== prevCodigo) next[pid] = { ...prevInfo, id: pid, nome, codigo };
+      }
+      return next;
+    });
+  }, []);
+
   const canPickOrigem = useMemo(() => {
     if (!user) return false;
     return user.role === 'super_admin' || user.role === 'admin_central';
@@ -123,6 +151,7 @@ export default function DemandaDetalhePage({ params }: { params: Promise<{ id: s
     const detail = isRecord(data) && typeof data.detail === "string" ? data.detail : undefined;
     if (!res.ok) throw new Error(detail || 'Erro ao carregar estoque da origem');
     const map: Record<string, number> = {};
+    const infoMap: Record<string, ProdutoInfo> = {};
     const items = isRecord(data) && Array.isArray(data.items) ? data.items : [];
     for (const raw of items) {
       if (!isRecord(raw)) continue;
@@ -130,9 +159,13 @@ export default function DemandaDetalhePage({ params }: { params: Promise<{ id: s
       if (!pid) continue;
       const disp = Number(raw.quantidade_disponivel ?? 0);
       map[pid] = Number.isFinite(disp) ? disp : 0;
+      const nome = raw.produto_nome != null ? String(raw.produto_nome) : '';
+      const codigo = raw.produto_codigo != null ? String(raw.produto_codigo) : '';
+      if (nome.trim()) infoMap[pid] = { id: pid, nome: nome.trim(), codigo: codigo.trim() || '-' };
     }
     setEstoqueOrigemByProdutoId(map);
-  }, []);
+    mergeProdutos(infoMap);
+  }, [mergeProdutos]);
 
   const loadProdutoInfo = useCallback(async (uid: string, produtoId: string) => {
     const headers = { 'X-User-Id': uid };
@@ -152,6 +185,7 @@ export default function DemandaDetalhePage({ params }: { params: Promise<{ id: s
     const detail = isRecord(data) && typeof data.detail === 'string' ? data.detail : undefined;
     if (!res.ok) throw new Error(detail || 'Erro ao carregar estoque do setor');
     const map: Record<string, number> = {};
+    const infoMap: Record<string, ProdutoInfo> = {};
     const items = isRecord(data) && Array.isArray(data.items) ? data.items : [];
     for (const raw of items) {
       if (!isRecord(raw)) continue;
@@ -159,9 +193,13 @@ export default function DemandaDetalhePage({ params }: { params: Promise<{ id: s
       if (!pid) continue;
       const disp = Number(raw.quantidade_disponivel ?? 0);
       map[pid] = Number.isFinite(disp) ? disp : 0;
+      const nome = raw.produto_nome != null ? String(raw.produto_nome) : '';
+      const codigo = raw.produto_codigo != null ? String(raw.produto_codigo) : '';
+      if (nome.trim()) infoMap[pid] = { id: pid, nome: nome.trim(), codigo: codigo.trim() || '-' };
     }
     setEstoqueSetorByProdutoId(map);
-  }, []);
+    mergeProdutos(infoMap);
+  }, [mergeProdutos]);
 
   const loadEstoqueOrigens = useCallback(async (uid: string, produtoIds: string[]) => {
     const headers = { 'X-User-Id': uid };
@@ -175,6 +213,7 @@ export default function DemandaDetalhePage({ params }: { params: Promise<{ id: s
     const detail = isRecord(data) && typeof data.detail === 'string' ? data.detail : undefined;
     if (!res.ok) throw new Error(detail || 'Erro ao carregar estoque nas origens');
     const grouped: Record<string, OrigemDisp[]> = {};
+    const infoMap: Record<string, ProdutoInfo> = {};
     const items = isRecord(data) && Array.isArray(data.items) ? data.items : [];
     for (const raw of items) {
       if (!isRecord(raw)) continue;
@@ -190,12 +229,16 @@ export default function DemandaDetalhePage({ params }: { params: Promise<{ id: s
       const list = grouped[pid] || [];
       list.push(entry);
       grouped[pid] = list;
+      const nome = raw.produto_nome != null ? String(raw.produto_nome) : '';
+      const codigo = raw.produto_codigo != null ? String(raw.produto_codigo) : '';
+      if (nome.trim()) infoMap[pid] = { id: pid, nome: nome.trim(), codigo: codigo.trim() || '-' };
     }
     for (const pid of Object.keys(grouped)) {
       grouped[pid].sort((a, b) => (b.quantidade_disponivel || 0) - (a.quantidade_disponivel || 0));
     }
     setOrigensByProdutoId(grouped);
-  }, []);
+    mergeProdutos(infoMap);
+  }, [mergeProdutos]);
 
   const refresh = useCallback(async (uid: string) => {
     const headers = { 'X-User-Id': uid };
@@ -232,7 +275,7 @@ export default function DemandaDetalhePage({ params }: { params: Promise<{ id: s
       const infos = await Promise.all(chunk.map(pid => loadProdutoInfo(uid, pid)));
       for (const info of infos) next[info.id] = info;
     }
-    setProdutos(next);
+    mergeProdutos(next);
     await loadEstoqueOrigens(uid, pids);
 
     setQtyByProdutoId(prev => {
@@ -244,7 +287,7 @@ export default function DemandaDetalhePage({ params }: { params: Promise<{ id: s
       }
       return init;
     });
-  }, [demandaId, loadEstoqueOrigens, loadEstoqueSetor, loadProdutoInfo]);
+  }, [demandaId, loadEstoqueOrigens, loadEstoqueSetor, loadProdutoInfo, mergeProdutos]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -346,7 +389,7 @@ export default function DemandaDetalhePage({ params }: { params: Promise<{ id: s
     if (!demanda) return;
     const next: Record<string, string> = { ...qtyByProdutoId };
     for (const it of demanda.items || []) {
-      const restante = Math.max(0, Number(it.quantidade || 0) - Number(it.atendido || 0));
+      const restante = Math.max(0, Math.round(Number(it.quantidade || 0) - Number(it.atendido || 0)));
       next[String(it.produto_id)] = restante > 0 ? String(restante) : '';
     }
     setQtyByProdutoId(next);
@@ -368,13 +411,16 @@ export default function DemandaDetalhePage({ params }: { params: Promise<{ id: s
       setError('Informe a origem');
       return;
     }
-    const items = (demanda.items || [])
-      .map(it => {
-        const pid = String(it.produto_id);
-        const q = Number(qtyByProdutoId[pid] || 0);
-        return { produto_id: pid, quantidade: q };
-      })
-      .filter(it => it.quantidade > 0);
+    const items: { produto_id: string; quantidade: number }[] = [];
+    for (const it of demanda.items || []) {
+      const pid = String(it.produto_id);
+      const q = Number(qtyByProdutoId[pid] || 0);
+      if (q > 0 && !Number.isInteger(q)) {
+        setError('Informe quantidades inteiras');
+        return;
+      }
+      if (q > 0) items.push({ produto_id: pid, quantidade: q });
+    }
     if (items.length === 0) {
       setError('Informe pelo menos um item para atender');
       return;
@@ -446,6 +492,28 @@ export default function DemandaDetalhePage({ params }: { params: Promise<{ id: s
     return list;
   }, [demanda, produtos, estoqueOrigemByProdutoId, estoqueSetorByProdutoId, origensByProdutoId]);
 
+  const resumoItens = useMemo(() => {
+    let solicitado = 0;
+    let atendido = 0;
+    let restante = 0;
+    let maxNestaOrigem = 0;
+    let totalNasOrigens = 0;
+    let itensRestantes = 0;
+    let itensCobertosNestaOrigem = 0;
+    for (const it of itemsView) {
+      solicitado += Number(it.solicitado || 0);
+      atendido += Number(it.atendido || 0);
+      restante += Number(it.restante || 0);
+      totalNasOrigens += Number(it.totalOrigens || 0);
+      if (it.restante > 0) {
+        itensRestantes += 1;
+        if (it.dispOrigem >= it.restante) itensCobertosNestaOrigem += 1;
+      }
+      maxNestaOrigem += Math.floor(Math.max(0, Math.min(it.restante, it.dispOrigem)));
+    }
+    return { solicitado, atendido, restante, maxNestaOrigem, totalNasOrigens, itensRestantes, itensCobertosNestaOrigem };
+  }, [itemsView]);
+
   if (authLoading) return null;
   if (!user) return null;
 
@@ -511,7 +579,7 @@ export default function DemandaDetalhePage({ params }: { params: Promise<{ id: s
                 <div className="font-semibold text-gray-900 mb-3">Atender</div>
 
                 <div className="mb-4 rounded-xl border border-blue-100 bg-blue-50/40 p-4">
-                  <div className="text-xs font-medium text-blue-800">Origem do atendimento</div>
+                  <div className="text-xs font-medium text-blue-800">Origem do atendimento (mesma origem para todos os itens)</div>
                   <div className="mt-1 text-sm text-gray-800">
                     <span className="font-semibold">
                       {origemSelecionada?.nome ||
@@ -527,8 +595,23 @@ export default function DemandaDetalhePage({ params }: { params: Promise<{ id: s
                       {origemSelecionada?.endereco ? `Endereço: ${origemSelecionada.endereco}` : `Descrição: ${origemSelecionada?.descricao}`}
                     </div>
                   )}
-                  <div className="mt-2 text-xs text-gray-600">
-                    O saldo mostrado por item é o disponível nessa origem antes do atendimento.
+                  <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                    <div className="rounded-lg bg-white/60 border border-blue-100 p-2">
+                      <div className="text-blue-700">Itens restantes</div>
+                      <div className="font-semibold text-blue-900">{resumoItens.itensRestantes}</div>
+                    </div>
+                    <div className="rounded-lg bg-white/60 border border-blue-100 p-2">
+                      <div className="text-blue-700">Cobertos nesta origem</div>
+                      <div className="font-semibold text-blue-900">{resumoItens.itensCobertosNestaOrigem}</div>
+                    </div>
+                    <div className="rounded-lg bg-white/60 border border-blue-100 p-2">
+                      <div className="text-blue-700">Máx enviável aqui</div>
+                      <div className="font-semibold text-blue-900">{Math.round(resumoItens.maxNestaOrigem)}</div>
+                    </div>
+                    <div className="rounded-lg bg-white/60 border border-blue-100 p-2">
+                      <div className="text-blue-700">Restante total</div>
+                      <div className="font-semibold text-blue-900">{Math.round(resumoItens.restante)}</div>
+                    </div>
                   </div>
                 </div>
 
@@ -569,7 +652,7 @@ export default function DemandaDetalhePage({ params }: { params: Promise<{ id: s
                               <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
                                 <div className="rounded-lg bg-white/60 border border-gray-200 p-2">
                                   <div className="text-gray-500">Cobertura</div>
-                                  <div className="font-semibold text-gray-900">{o.totalCobertura.toFixed(2)}</div>
+                                  <div className="font-semibold text-gray-900">{Math.round(o.totalCobertura)}</div>
                                 </div>
                                 <div className="rounded-lg bg-white/60 border border-gray-200 p-2">
                                   <div className="text-gray-500">Itens integrais</div>
@@ -628,7 +711,13 @@ export default function DemandaDetalhePage({ params }: { params: Promise<{ id: s
         </div>
 
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-          <div className="font-semibold text-gray-900 mb-4">Itens</div>
+          <div className="flex items-start justify-between gap-3 mb-2">
+            <div className="font-semibold text-gray-900">Itens</div>
+            <div className="text-xs text-gray-500 text-right">
+              <div>Restante = solicitado − atendido</div>
+              <div>Máx aqui = min(restante, disponível na origem)</div>
+            </div>
+          </div>
 
           {loading ? (
             <Loading size="sm" className="items-start text-left" />
@@ -638,48 +727,54 @@ export default function DemandaDetalhePage({ params }: { params: Promise<{ id: s
             <div className="space-y-4">
               {itemsView.map(it => {
                 const qNow = Number(qtyByProdutoId[it.produto_id] || 0);
-                const maxNow = Math.max(0, Math.min(it.restante, it.dispOrigem));
+                const maxNow = Math.floor(Math.max(0, Math.min(it.restante, it.dispOrigem)));
                 const invalid = qNow > 0 && qNow > maxNow;
+                const displayNome =
+                  it.produto_nome && it.produto_nome !== it.produto_id ? it.produto_nome : `Produto ${it.produto_id.slice(0, 8)}…`;
+                const statusTag =
+                  it.restante <= 0
+                    ? { label: 'Atendido', cls: 'bg-gray-100 text-gray-700' }
+                    : it.dispOrigem >= it.restante
+                      ? { label: 'Cobre nesta origem', cls: 'bg-green-50 text-green-700' }
+                      : it.totalOrigens >= it.restante
+                        ? { label: 'Cobre no total', cls: 'bg-blue-50 text-blue-700' }
+                        : { label: 'Saldo insuficiente', cls: 'bg-orange-50 text-orange-700' };
                 return (
                   <div key={it.produto_id} className="rounded-xl border border-gray-200 p-5">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <div className="font-semibold text-gray-900 truncate">{it.produto_nome}</div>
-                        <div className="text-xs text-gray-500 mt-1">Cód: {it.produto_codigo}</div>
+                        <div className="font-semibold text-gray-900 truncate">{displayNome}</div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          {it.produto_codigo && it.produto_codigo !== '-' ? `Cód: ${it.produto_codigo}` : `ID: ${it.produto_id}`}
+                        </div>
                         {it.observacao && <div className="text-xs text-gray-500 mt-2">Obs: {it.observacao}</div>}
                       </div>
                       <div className="flex flex-col items-end gap-2">
-                        <div className={`text-xs px-2 py-1 rounded-full ${it.totalOrigens >= it.restante ? 'bg-green-50 text-green-700' : 'bg-orange-50 text-orange-700'}`}>
-                          {it.totalOrigens >= it.restante ? 'Integral possível' : 'Parcial provável'}
-                        </div>
-                        <div className="text-xs text-gray-600">Restante: {it.restante.toFixed(2)}</div>
+                        <div className={`text-xs px-2 py-1 rounded-full ${statusTag.cls}`}>{statusTag.label}</div>
+                        <div className="text-xs text-gray-600">Restante: {Math.round(it.restante)}</div>
                       </div>
                     </div>
 
-                    <div className="mt-4 grid grid-cols-2 md:grid-cols-3 gap-3 text-xs">
+                    <div className="mt-4 grid grid-cols-2 md:grid-cols-5 gap-3 text-xs">
                       <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
                         <div className="text-gray-500">Solicitado</div>
-                        <div className="font-semibold text-gray-900">{it.solicitado.toFixed(2)}</div>
+                        <div className="font-semibold text-gray-900">{Math.round(it.solicitado)}</div>
                       </div>
                       <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
                         <div className="text-gray-500">Atendido</div>
-                        <div className="font-semibold text-gray-900">{it.atendido.toFixed(2)}</div>
+                        <div className="font-semibold text-gray-900">{Math.round(it.atendido)}</div>
                       </div>
                       <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
-                        <div className="text-gray-500">No setor</div>
-                        <div className="font-semibold text-gray-900">{it.dispSetor.toFixed(2)}</div>
-                      </div>
-                      <div className="rounded-lg bg-blue-50 border border-blue-100 p-3">
-                        <div className="text-blue-700">Total nas origens</div>
-                        <div className="font-semibold text-blue-900">{it.totalOrigens.toFixed(2)}</div>
-                      </div>
-                      <div className={`rounded-lg border p-3 ${it.dispOrigem > 0 ? 'bg-white border-gray-200' : 'bg-red-50 border-red-100'}`}>
-                        <div className={`${it.dispOrigem > 0 ? 'text-gray-500' : 'text-red-700'}`}>Disp. na origem selecionada</div>
-                        <div className={`font-semibold ${it.dispOrigem > 0 ? 'text-gray-900' : 'text-red-800'}`}>{it.dispOrigem.toFixed(2)}</div>
+                        <div className="text-gray-500">Disp. no setor</div>
+                        <div className="font-semibold text-gray-900">{Math.round(it.dispSetor)}</div>
                       </div>
                       <div className="rounded-lg bg-white border border-gray-200 p-3">
-                        <div className="text-gray-500">Máx nesta origem</div>
-                        <div className="font-semibold text-gray-900">{maxNow.toFixed(2)}</div>
+                        <div className="text-gray-500">Disp. na origem</div>
+                        <div className={`font-semibold ${it.dispOrigem > 0 ? 'text-gray-900' : 'text-red-800'}`}>{Math.round(it.dispOrigem)}</div>
+                      </div>
+                      <div className="rounded-lg bg-blue-50 border border-blue-100 p-3">
+                        <div className="text-blue-700">Máx enviável aqui</div>
+                        <div className="font-semibold text-blue-900">{maxNow}</div>
                       </div>
                     </div>
 
@@ -691,7 +786,7 @@ export default function DemandaDetalhePage({ params }: { params: Promise<{ id: s
                             type="number"
                             min="0"
                             max={maxNow}
-                            step="0.01"
+                            step="1"
                             value={qtyByProdutoId[it.produto_id] ?? ''}
                             onChange={e => setQtyByProdutoId(prev => ({ ...prev, [it.produto_id]: e.target.value }))}
                             className={`w-40 px-3 py-2 border rounded-lg focus:ring-2 outline-none text-right ${
@@ -715,13 +810,14 @@ export default function DemandaDetalhePage({ params }: { params: Promise<{ id: s
                           </button>
                         </div>
                         {invalid && <div className="mt-1 text-xs text-red-700">Valor acima do máximo disponível nesta origem.</div>}
+                        <div className="mt-2 text-xs text-gray-600 flex flex-wrap gap-x-4 gap-y-1">
+                          <span>Total nas origens: {Math.round(it.totalOrigens)}</span>
+                        </div>
                       </div>
 
                       <div>
                         <details className="rounded-xl border border-gray-200 bg-gray-50/50 p-4">
-                          <summary className="cursor-pointer text-sm font-medium text-gray-800">
-                            Locais com saldo ({it.origens.length})
-                          </summary>
+                          <summary className="cursor-pointer text-sm font-medium text-gray-800">Locais com saldo ({it.origens.length})</summary>
                           {it.origens.length === 0 ? (
                             <div className="mt-3 text-sm text-gray-500">Nenhum local com saldo para este produto.</div>
                           ) : (
@@ -742,7 +838,7 @@ export default function DemandaDetalhePage({ params }: { params: Promise<{ id: s
                                       </div>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                      <div className="text-sm font-semibold text-gray-900">{Number(o.quantidade_disponivel || 0).toFixed(2)}</div>
+                                      <div className="text-sm font-semibold text-gray-900">{Math.round(Number(o.quantidade_disponivel || 0))}</div>
                                       {canPickOrigem && (
                                         <button
                                           type="button"
@@ -801,10 +897,11 @@ export default function DemandaDetalhePage({ params }: { params: Promise<{ id: s
                         {(a.items || []).map((it, j) => {
                           const pid = String(it.produto_id);
                           const info = produtos[pid];
+                          const nome = info?.nome && info.nome !== pid ? info.nome : `Produto ${pid.slice(0, 8)}…`;
                           return (
                             <div key={`${idx}:${j}:${pid}`} className="text-sm text-gray-800 flex items-center justify-between gap-2">
-                              <span className="truncate">{info?.nome || pid}</span>
-                              <span className="text-xs text-gray-600">{Number(it.quantidade || 0).toFixed(2)}</span>
+                              <span className="truncate">{nome}</span>
+                              <span className="text-xs text-gray-600">{Math.round(Number(it.quantidade || 0))}</span>
                             </div>
                           );
                         })}

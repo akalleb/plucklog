@@ -3455,16 +3455,61 @@ async def atender_demanda(demanda_id: str, req: DemandaAtenderRequest, user: Dic
     return {"status": "success", "demanda_status": status_out}
 
 @app.get("/api/dashboard/charts/consumo")
-async def get_chart_consumo():
-    # Agrupar saídas por destino (Setor)
+async def get_chart_consumo(user: Dict[str, Any] = Depends(get_current_user)):
+    role = (user.get("role") or "").strip()
+    if role not in ("super_admin", "admin_central"):
+        raise HTTPException(status_code=403, detail="Acesso negado")
+
+    match: Dict[str, Any] = {"tipo": "distribuicao", "local_destino_tipo": "setor"}
+
+    if role == "admin_central":
+        scope_id = _norm_id(user.get("scope_id"))
+        if not scope_id:
+            return []
+        setores_docs = await db.db.setores.find().to_list(length=10000)
+        allowed_ids: List[Any] = []
+        allowed_names: List[str] = []
+        for s in setores_docs:
+            chain = await _resolve_parent_chain_from_setor(s)
+            if _norm_id(chain.get("central_id")) != scope_id:
+                continue
+            sid = _public_id(s) or str(s.get("_id"))
+            allowed_ids.append(sid)
+            if s.get("nome"):
+                allowed_names.append(str(s.get("nome")))
+
+        allowed_id_vals: List[Any] = []
+        for sid in allowed_ids:
+            allowed_id_vals.append(sid)
+            if str(sid).isdigit():
+                allowed_id_vals.append(int(str(sid)))
+            if ObjectId.is_valid(str(sid)):
+                allowed_id_vals.append(ObjectId(str(sid)))
+        allowed_id_vals = list(dict.fromkeys(allowed_id_vals))
+        allowed_names = list(dict.fromkeys([n for n in allowed_names if n.strip()]))
+
+        ors: List[Dict[str, Any]] = []
+        if allowed_id_vals:
+            ors.append({"local_destino_id": {"$in": allowed_id_vals}})
+        if allowed_names:
+            ors.append({
+                "$and": [
+                    {"destino_nome": {"$in": allowed_names}},
+                    {"$or": [{"local_destino_id": {"$exists": False}}, {"local_destino_id": None}, {"local_destino_id": ""}]},
+                ]
+            })
+        if not ors:
+            return []
+        match = {"$and": [match, {"$or": ors}]}
+
     pipeline = [
-        {"$match": {"tipo": "distribuicao"}},
+        {"$match": match},
         {"$group": {"_id": "$destino_nome", "total": {"$sum": "$quantidade"}}},
         {"$sort": {"total": -1}},
-        {"$limit": 5}
+        {"$limit": 5},
     ]
     data = await db.db.movimentacoes.aggregate(pipeline).to_list(length=5)
-    return [{"name": d["_id"], "value": d["total"]} for d in data]
+    return [{"name": d.get("_id"), "value": d.get("total")} for d in data if d]
 
 @app.get("/api/dashboard/charts/movimentacoes")
 async def get_chart_movimentacoes():

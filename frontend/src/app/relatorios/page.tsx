@@ -103,7 +103,7 @@ export default function RelatoriosPage() {
           <BarChart className="h-6 w-6 text-blue-600" />
           Relatórios e Métricas
         </h1>
-        <p className="text-gray-500 mt-1">Visão geral do desempenho e consumo do almoxarifado.</p>
+        <p className="text-gray-500 mt-1">Visão geral do desempenho e consumo por setor.</p>
       </div>
 
       {/* KPI Cards */}

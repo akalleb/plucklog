@@ -140,10 +140,12 @@ export default function NovaEntradaPage() {
       if (!formData.data_validade) throw new Error('Validade é obrigatória');
 
       const dataValidade = new Date(`${formData.data_validade}T00:00:00`).toISOString();
+      const quantidade = Number(formData.quantidade);
+      if (!quantidade || quantidade <= 0 || !Number.isInteger(quantidade)) throw new Error('Quantidade inválida');
 
       const payload = {
         produto_id: produtoSelected.id,
-        quantidade: Number(formData.quantidade),
+        quantidade,
         ...(formData.preco_unitario.trim() !== '' ? { preco_unitario: Number(formData.preco_unitario) } : {}),
         destino_tipo: destinoTipo,
         destino_id: destinoId,
@@ -267,8 +269,8 @@ export default function NovaEntradaPage() {
               <input 
                 type="number" 
                 required
-                min="0.01"
-                step="0.01"
+                min="1"
+                step="1"
                 className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 outline-none"
                 value={formData.quantidade}
                 onChange={e => setFormData({...formData, quantidade: e.target.value})}

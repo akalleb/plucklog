@@ -90,7 +90,8 @@ export default function ProdutoDetalhesPage() {
 
   const openEditLote = (lote: { id: string; numero: string; validade?: string | null; quantidade?: number; preco_unitario?: number | null }) => {
     const validade = lote.validade ? new Date(lote.validade).toISOString().slice(0, 10) : '';
-    const quantidade = typeof lote.quantidade === 'number' && Number.isFinite(lote.quantidade) ? String(lote.quantidade) : '';
+    const quantidade =
+      typeof lote.quantidade === 'number' && Number.isFinite(lote.quantidade) ? String(Math.round(lote.quantidade)) : '';
     const preco_unitario =
       typeof lote.preco_unitario === 'number' && Number.isFinite(lote.preco_unitario) ? String(lote.preco_unitario) : '';
     setEditingLote({ id: lote.id, numero: lote.numero, validade, quantidade, preco_unitario });
@@ -112,7 +113,12 @@ export default function ProdutoDetalhesPage() {
       payload.data_validade = editingLote.validade ? new Date(`${editingLote.validade}T00:00:00`).toISOString() : null;
 
       if (editingLote.quantidade.trim() !== '') {
-        payload.quantidade_atual = Number(editingLote.quantidade);
+        const qtd = Number(editingLote.quantidade);
+        if (!Number.isInteger(qtd)) {
+          alert('Informe uma quantidade inteira');
+          return;
+        }
+        payload.quantidade_atual = qtd;
       }
       if (editingLote.preco_unitario.trim() !== '') {
         payload.preco_unitario = Number(editingLote.preco_unitario);
@@ -174,7 +180,7 @@ export default function ProdutoDetalhesPage() {
           </div>
           <div className="bg-blue-50 border border-blue-100 p-6 rounded-xl text-center min-w-[150px]">
             <span className="block text-sm text-blue-600 font-medium mb-1">Estoque Total</span>
-            <span className="block text-4xl font-bold text-blue-900">{produto.estoque_total.toLocaleString('pt-BR')}</span>
+            <span className="block text-4xl font-bold text-blue-900">{Math.round(produto.estoque_total).toLocaleString('pt-BR')}</span>
           </div>
         </div>
       </div>
@@ -201,7 +207,7 @@ export default function ProdutoDetalhesPage() {
                       <span className="text-xs text-gray-500 capitalize">{loc.local_tipo}</span>
                     </div>
                   </div>
-                  <span className="font-mono font-bold text-gray-700">{loc.quantidade}</span>
+                  <span className="font-mono font-bold text-gray-700">{Math.round(loc.quantidade)}</span>
                 </div>
               ))}
             </div>
@@ -237,7 +243,7 @@ export default function ProdutoDetalhesPage() {
                    <span className={`text-sm font-bold ${
                       hist.tipo === 'saida' ? 'text-red-600' : 'text-green-600'
                    }`}>
-                      {hist.tipo === 'saida' ? '-' : '+'}{hist.quantidade}
+                      {hist.tipo === 'saida' ? '-' : '+'}{Math.round(hist.quantidade)}
                    </span>
                 </div>
               ))}
@@ -269,7 +275,7 @@ export default function ProdutoDetalhesPage() {
                     <tr key={idx} className="hover:bg-gray-50">
                       <td className="px-4 py-2 font-medium text-gray-900">{lote.numero}</td>
                       <td className="px-4 py-2 text-gray-600">{formatDate(lote.validade)}</td>
-                      <td className="px-4 py-2 text-gray-900">{lote.quantidade}</td>
+                      <td className="px-4 py-2 text-gray-900">{Math.round(lote.quantidade)}</td>
                       <td className="px-4 py-2 text-gray-900">
                         {typeof lote.preco_unitario === 'number' && Number.isFinite(lote.preco_unitario)
                           ? lote.preco_unitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -331,7 +337,7 @@ export default function ProdutoDetalhesPage() {
                 <input
                   type="number"
                   min="0"
-                  step="0.01"
+                  step="1"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                   value={editingLote.quantidade}
                   onChange={e => setEditingLote({ ...editingLote, quantidade: e.target.value })}

@@ -167,7 +167,7 @@ export default function MovimentacoesPage() {
                     </td>
                     <td className="px-6 py-4 text-right font-mono font-medium">
                       {mov.tipo === 'saida' || mov.tipo === 'distribuicao' ? '-' : '+'}
-                      {mov.quantidade}
+                      {Math.round(mov.quantidade)}
                     </td>
                     <td className="px-6 py-4 text-gray-500 text-xs">
                       {mov.usuario || 'Sistema'}

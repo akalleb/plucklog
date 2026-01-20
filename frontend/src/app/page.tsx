@@ -190,7 +190,7 @@ export default function Dashboard() {
                         </div>
                       </td>
                       <td className="px-6 py-4 font-mono font-medium text-gray-700">
-                        {item.quantidade_disponivel.toLocaleString('pt-BR')}
+                        {Math.round(item.quantidade_disponivel).toLocaleString('pt-BR')}
                       </td>
                       <td className="px-6 py-4">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${

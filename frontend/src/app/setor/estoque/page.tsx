@@ -182,7 +182,7 @@ export default function SetorEstoquePage() {
                 <tr key={i.produto_id} className="hover:bg-gray-50">
                   <td className="px-4 py-2 font-medium text-gray-900">{i.produto_nome}</td>
                   <td className="px-4 py-2 text-gray-600">{i.produto_codigo}</td>
-                  <td className="px-4 py-2 text-right font-semibold text-gray-900">{Number(i.quantidade_disponivel || 0).toFixed(2)}</td>
+                  <td className="px-4 py-2 text-right font-semibold text-gray-900">{Math.round(Number(i.quantidade_disponivel || 0))}</td>
                   <td className="px-4 py-2 text-right">
                     <button type="button" className="text-blue-600 hover:underline" onClick={() => openDetails(i)}>
                       Detalhes
@@ -202,7 +202,7 @@ export default function SetorEstoquePage() {
               <div className="min-w-0">
                 <div className="text-lg font-bold text-gray-900 truncate">{selected.produto_nome}</div>
                 <div className="text-xs text-gray-500">
-                  Cód: {selected.produto_codigo} · Disponível no setor: {Number(selected.quantidade_disponivel || 0).toFixed(2)}
+                  Cód: {selected.produto_codigo} · Disponível no setor: {Math.round(Number(selected.quantidade_disponivel || 0))}
                 </div>
               </div>
               <button type="button" onClick={closeDetails} className="px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">
@@ -234,7 +234,7 @@ export default function SetorEstoquePage() {
                           </div>
                           <div className={`font-semibold whitespace-nowrap ${String(m.tipo || '').toLowerCase() === 'saida' ? 'text-red-600' : 'text-green-700'}`}>
                             {String(m.tipo || '').toLowerCase() === 'saida' ? '-' : '+'}
-                            {Number(m.quantidade || 0).toFixed(2)}
+                            {Math.round(Number(m.quantidade || 0))}
                           </div>
                         </div>
                       ))}
@@ -263,7 +263,7 @@ export default function SetorEstoquePage() {
                             <tr key={l.id} className="hover:bg-gray-50">
                               <td className="px-3 py-2 font-medium text-gray-900">{l.numero}</td>
                               <td className="px-3 py-2 text-gray-600">{formatDate(l.validade)}</td>
-                              <td className="px-3 py-2 text-right text-gray-900">{Number(l.quantidade || 0).toFixed(2)}</td>
+                              <td className="px-3 py-2 text-right text-gray-900">{Math.round(Number(l.quantidade || 0))}</td>
                               <td className="px-3 py-2 text-right text-gray-900">
                                 {typeof l.preco_unitario === 'number' && Number.isFinite(l.preco_unitario)
                                   ? l.preco_unitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })

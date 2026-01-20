@@ -7,12 +7,6 @@ import { useAuth } from '@/context/AuthContext';
 import { Page } from '@/components/ui/Page';
 import { apiUrl } from '@/lib/api';
 
-interface SimpleLocation {
-  id: string;
-  nome: string;
-  central_id?: string;
-}
-
 interface Central {
   id: string;
   nome: string;
@@ -69,7 +63,6 @@ export default function DistribuicaoPage() {
   const searchSeq = useRef(0);
   
   const [centrais, setCentrais] = useState<Central[]>([]);
-  const [almoxarifados, setAlmoxarifados] = useState<SimpleLocation[]>([]);
   const [subAlmoxarifados, setSubAlmoxarifados] = useState<SubAlmoxarifado[]>([]);
   const [setores, setSetores] = useState<Setor[]>([]);
   const [includeInterCentral, setIncludeInterCentral] = useState(false);
@@ -78,7 +71,7 @@ export default function DistribuicaoPage() {
     quantidade: '',
     origem_tipo: 'almoxarifado',
     origem_id: '',
-    destino_tipo: 'almoxarifado',
+    destino_tipo: 'setor',
     destino_id: '',
     observacoes: ''
   });
@@ -92,12 +85,10 @@ export default function DistribuicaoPage() {
     const qsInter = includeInterCentral ? '?include_inter_central=1' : '';
     Promise.all([
       fetch(apiUrl(`/api/centrais${qsCentrais}`), { headers }).then(r => (r.ok ? r.json() : [])),
-      fetch(apiUrl(`/api/almoxarifados${qsInter}`), { headers }).then(r => (r.ok ? r.json() : [])),
       fetch(apiUrl(`/api/sub_almoxarifados${qsInter}`), { headers }).then(r => (r.ok ? r.json() : [])),
       fetch(apiUrl(`/api/setores${qsInter}`), { headers }).then(r => (r.ok ? r.json() : [])),
-    ]).then(([c, a, s, sets]) => {
+    ]).then(([c, s, sets]) => {
       setCentrais(c);
-      setAlmoxarifados(a);
       setSubAlmoxarifados(s);
       setSetores(sets);
     }).catch(() => setError('Erro ao carregar hierarquia'));
@@ -105,15 +96,13 @@ export default function DistribuicaoPage() {
 
   useEffect(() => {
     if (!formData.destino_id) return;
-    if (formData.destino_tipo === 'almoxarifado') {
-      if (almoxarifados.some(a => a.id === formData.destino_id)) return;
-    } else if (formData.destino_tipo === 'sub_almoxarifado') {
+    if (formData.destino_tipo === 'sub_almoxarifado') {
       if (subAlmoxarifados.some(s => s.id === formData.destino_id)) return;
     } else if (formData.destino_tipo === 'setor') {
       if (setores.some(s => s.id === formData.destino_id)) return;
     }
     setFormData(prev => ({ ...prev, destino_id: '' }));
-  }, [almoxarifados, formData.destino_id, formData.destino_tipo, setores, subAlmoxarifados]);
+  }, [formData.destino_id, formData.destino_tipo, setores, subAlmoxarifados]);
 
   useEffect(() => {
     if (!produtoQuery.trim()) {
@@ -168,7 +157,6 @@ export default function DistribuicaoPage() {
       .sort((a, b) => (b.quantidade_disponivel || 0) - (a.quantidade_disponivel || 0));
   }, [produtoDetalhes]);
 
-  const almoxById = useMemo(() => new Map(almoxarifados.map(a => [a.id, a])), [almoxarifados]);
   const subById = useMemo(() => new Map(subAlmoxarifados.map(s => [s.id, s])), [subAlmoxarifados]);
 
   const origensDisponiveis = useMemo(() => {
@@ -197,25 +185,14 @@ export default function DistribuicaoPage() {
       }
 
       if (user.role === 'admin_central') {
-        const centralId = user.central_id || scopeId;
-        if (!centralId) return false;
-        if (tipo === 'almoxarifado') {
-          const almox = almoxById.get(id);
-          return !!almox?.central_id && almox.central_id === centralId;
-        }
-        if (tipo === 'sub_almoxarifado') {
-          const sub = subById.get(id);
-          const almox = sub?.almoxarifado_id ? almoxById.get(sub.almoxarifado_id) : undefined;
-          return !!almox?.central_id && almox.central_id === centralId;
-        }
-        return false;
+        return tipo === 'almoxarifado' || tipo === 'sub_almoxarifado';
       }
 
       return false;
     };
 
     return base.filter(o => isAllowed(o.local_tipo, o.local_id || ''));
-  }, [almoxById, evidencias, subById, user]);
+  }, [evidencias, subById, user]);
 
   const [destinoQuery, setDestinoQuery] = useState('');
   const centralById = useMemo(() => new Map(centrais.map(c => [c.id, c])), [centrais]);
@@ -224,30 +201,11 @@ export default function DistribuicaoPage() {
     const q = destinoQuery.trim().toLowerCase();
     const match = (name?: string) => !q || (name || '').toLowerCase().includes(q);
 
-    if (formData.destino_tipo === 'almoxarifado') {
-      return almoxarifados
-        .filter(a => match(a.nome))
-        .map(a => {
-          const central = a.central_id ? centralById.get(a.central_id) : undefined;
-          return {
-            id: a.id,
-            tipo: 'almoxarifado',
-            nome: a.nome,
-            extra: central ? `Central: ${central.nome}` : '',
-          };
-        });
-    }
-
     if (formData.destino_tipo === 'sub_almoxarifado') {
       return subAlmoxarifados
         .filter(s => match(s.nome))
         .map(s => {
-          const almox = s.almoxarifado_id ? almoxById.get(s.almoxarifado_id) : undefined;
-          const central = almox?.central_id ? centralById.get(almox.central_id) : undefined;
-          const extraParts = [];
-          if (almox) extraParts.push(`Almox: ${almox.nome}`);
-          if (central) extraParts.push(`Central: ${central.nome}`);
-          return { id: s.id, tipo: 'sub_almoxarifado', nome: s.nome, extra: extraParts.join(' • ') };
+          return { id: s.id, tipo: 'sub_almoxarifado', nome: s.nome, extra: '' };
         });
     }
 
@@ -262,7 +220,7 @@ export default function DistribuicaoPage() {
     }
 
     return [];
-  }, [almoxarifados, centralById, almoxById, subAlmoxarifados, destinoQuery, formData.destino_tipo, setores]);
+  }, [centralById, destinoQuery, formData.destino_tipo, setores, subAlmoxarifados]);
 
   const origemDisponivel = useMemo(() => {
     if (!formData.origem_id) return null;
@@ -290,7 +248,7 @@ export default function DistribuicaoPage() {
       const origemId = formData.origem_id;
       if (!origemId) throw new Error('Selecione a origem');
       const qtd = Number(formData.quantidade);
-      if (!qtd || qtd <= 0) throw new Error('Quantidade inválida');
+      if (!qtd || qtd <= 0 || !Number.isInteger(qtd)) throw new Error('Quantidade inválida');
       if (origemDisponivel !== null && qtd > origemDisponivel) throw new Error('Quantidade maior que o disponível na origem');
 
       if (!formData.destino_id) throw new Error('Selecione o destino');
@@ -444,7 +402,7 @@ export default function DistribuicaoPage() {
                             <div className="text-xs text-gray-500 truncate">{e.local_id || '-'}</div>
                           </div>
                           <div className="text-right">
-                            <div className="text-sm font-semibold text-gray-900">{(e.quantidade_disponivel || 0).toFixed(2)}</div>
+                            <div className="text-sm font-semibold text-gray-900">{Math.round(e.quantidade_disponivel || 0)}</div>
                             <div className="text-xs text-gray-500">disp.</div>
                           </div>
                         </div>
@@ -485,7 +443,7 @@ export default function DistribuicaoPage() {
                               <div className="text-sm font-medium text-gray-900 truncate">{o.local_nome}</div>
                               <div className="text-xs text-gray-500">{o.local_tipo}</div>
                             </div>
-                            <div className="text-sm font-semibold text-gray-900">{(o.quantidade_disponivel || 0).toFixed(2)}</div>
+                            <div className="text-sm font-semibold text-gray-900">{Math.round(o.quantidade_disponivel || 0)}</div>
                           </div>
                         </button>
                       );
@@ -518,15 +476,15 @@ export default function DistribuicaoPage() {
               <input 
                 type="number" 
                 required
-                min="0.01"
-                step="0.01"
+                min="1"
+                step="1"
                 max={origemDisponivel !== null ? origemDisponivel : undefined}
                 className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 outline-none"
                 value={formData.quantidade}
                 onChange={e => setFormData({...formData, quantidade: e.target.value})}
               />
               {origemDisponivel !== null && (
-                <p className="text-xs text-gray-500 mt-1">Disponível na origem: {origemDisponivel.toFixed(2)}</p>
+                <p className="text-xs text-gray-500 mt-1">Disponível na origem: {Math.round(origemDisponivel)}</p>
               )}
             </div>
 
@@ -544,7 +502,7 @@ export default function DistribuicaoPage() {
                   Incluir destinos &quot;Receber de Outra Central&quot;
                 </label>
                 <div className="flex gap-2">
-                  {(['setor', 'sub_almoxarifado', 'almoxarifado'] as const).map(t => {
+                  {(['setor', 'sub_almoxarifado'] as const).map(t => {
                     const active = formData.destino_tipo === t;
                     const label = t === 'setor' ? 'Setor' : t === 'sub_almoxarifado' ? 'Sub' : 'Almox';
                     return (

@@ -156,7 +156,7 @@ export default function SetorHomePage() {
             </div>
             <div className="rounded-lg bg-gray-50 p-3">
               <div className="text-gray-500">Disponível total</div>
-              <div className="font-semibold text-gray-900">{loading ? '-' : estoqueResumo.totalDisponivel.toFixed(2)}</div>
+              <div className="font-semibold text-gray-900">{loading ? '-' : Math.round(estoqueResumo.totalDisponivel)}</div>
             </div>
             <div className="rounded-lg bg-gray-50 p-3">
               <div className="text-gray-500">Baixo (≤ 5)</div>
@@ -221,7 +221,7 @@ export default function SetorHomePage() {
                       {m.origem} &rarr; {m.destino} · {formatDateTime(m.data)}
                     </div>
                   </div>
-                  <div className="font-semibold text-gray-900 whitespace-nowrap">+{Number(m.quantidade || 0).toFixed(2)}</div>
+                  <div className="font-semibold text-gray-900 whitespace-nowrap">+{Math.round(Number(m.quantidade || 0))}</div>
                 </div>
               ))}
             </div>
@@ -249,7 +249,7 @@ export default function SetorHomePage() {
                     <div className="font-medium text-gray-900 truncate">{i.produto_nome || i.produto_id}</div>
                     <div className="text-xs text-gray-500 truncate">Cód: {i.produto_codigo || '-'}</div>
                   </div>
-                  <div className="font-semibold text-gray-900 whitespace-nowrap">{Number(i.quantidade_disponivel || 0).toFixed(2)}</div>
+                  <div className="font-semibold text-gray-900 whitespace-nowrap">{Math.round(Number(i.quantidade_disponivel || 0))}</div>
                 </div>
               ))}
             </div>

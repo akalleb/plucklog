@@ -85,7 +85,7 @@ export default function SetorConsumoPage() {
       setError('Selecione um produto');
       return;
     }
-    if (!q || q <= 0) {
+    if (!q || q <= 0 || !Number.isInteger(q)) {
       setError('Quantidade inválida');
       return;
     }
@@ -184,7 +184,7 @@ export default function SetorConsumoPage() {
                             {i.produto_nome} <span className="text-gray-500">({i.produto_codigo})</span>
                           </div>
                           <div className="text-xs text-gray-500">
-                            Disponível: {Number(i.quantidade_disponivel || 0).toFixed(2)}
+                            Disponível: {Math.round(Number(i.quantidade_disponivel || 0))}
                           </div>
                         </button>
                       ))
@@ -200,13 +200,13 @@ export default function SetorConsumoPage() {
               <input
                 type="number"
                 min="0"
-                step="0.01"
+                step="1"
                 value={quantidade}
                 onChange={e => setQuantidade(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
                 placeholder="0"
               />
-              {selected && <div className="text-xs text-gray-500 mt-1">Disponível: {Number(selected.quantidade_disponivel || 0).toFixed(2)}</div>}
+              {selected && <div className="text-xs text-gray-500 mt-1">Disponível: {Math.round(Number(selected.quantidade_disponivel || 0))}</div>}
             </div>
 
             <div>

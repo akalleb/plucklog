@@ -136,7 +136,7 @@ export default function SaidaSetorPage() {
     for (const item of cart) {
       const q = Number(item.quantidade);
       if (!item.origem) return `Selecione a origem para ${item.produto_nome}`;
-      if (!q || q <= 0) return `Quantidade inválida para ${item.produto_nome}`;
+      if (!q || q <= 0 || !Number.isInteger(q)) return `Quantidade inválida para ${item.produto_nome}`;
       if (q > (item.origem.quantidade_disponivel || 0)) return `Quantidade maior que o disponível para ${item.produto_nome}`;
     }
     return null;
@@ -289,7 +289,7 @@ export default function SaidaSetorPage() {
                         <div className="text-xs text-gray-500 truncate">{p.produto_codigo}</div>
                       </div>
                       <div className="text-right">
-                        <div className="text-sm font-semibold text-gray-900">{p.total_disponivel.toFixed(2)}</div>
+                        <div className="text-sm font-semibold text-gray-900">{Math.round(p.total_disponivel || 0)}</div>
                         <div className="text-xs text-gray-500">disp.</div>
                       </div>
                     </div>
@@ -316,7 +316,7 @@ export default function SaidaSetorPage() {
                                   <div className="text-sm font-medium text-gray-900 truncate">{o.nome}</div>
                                   <div className="text-xs text-gray-500">{o.tipo}</div>
                                 </div>
-                                <div className="text-sm font-semibold text-gray-900">{o.quantidade_disponivel.toFixed(2)}</div>
+                              <div className="text-sm font-semibold text-gray-900">{Math.round(o.quantidade_disponivel || 0)}</div>
                               </div>
                             </button>
                           ))
@@ -381,7 +381,7 @@ export default function SaidaSetorPage() {
                                 <div className="text-sm font-medium text-gray-900 truncate">{o.nome}</div>
                                 <div className="text-xs text-gray-500">{o.tipo}</div>
                               </div>
-                              <div className="text-sm font-semibold text-gray-900">{o.quantidade_disponivel.toFixed(2)}</div>
+                              <div className="text-sm font-semibold text-gray-900">{Math.round(o.quantidade_disponivel || 0)}</div>
                             </div>
                           </button>
                         );
@@ -393,15 +393,15 @@ export default function SaidaSetorPage() {
                     <label className="block text-xs text-gray-500 mb-1">Quantidade</label>
                     <input
                       type="number"
-                      min="0.01"
-                      step="0.01"
+                      min="1"
+                      step="1"
                       max={item.origem ? item.origem.quantidade_disponivel : undefined}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
                       value={item.quantidade}
                       onChange={e => setQuantidade(item.produto_id, e.target.value)}
                     />
                     {item.origem && (
-                      <p className="text-xs text-gray-500 mt-1">Disponível: {item.origem.quantidade_disponivel.toFixed(2)}</p>
+                      <p className="text-xs text-gray-500 mt-1">Disponível: {Math.round(item.origem.quantidade_disponivel || 0)}</p>
                     )}
                   </div>
                 </div>
@@ -429,7 +429,7 @@ export default function SaidaSetorPage() {
                     <div className="text-xs text-gray-500 truncate">{p.produto_codigo}</div>
                   </div>
                   <div className="text-right">
-                    <div className="text-sm font-semibold text-gray-900">{p.quantidade_disponivel.toFixed(2)}</div>
+                    <div className="text-sm font-semibold text-gray-900">{Math.round(p.quantidade_disponivel || 0)}</div>
                     <div className="text-xs text-gray-500">disp.</div>
                   </div>
                 </div>

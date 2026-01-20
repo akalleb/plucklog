@@ -113,7 +113,7 @@ export default function SetorDemandasPage() {
       return;
     }
     const q = Number(quantidade);
-    if (!q || q <= 0) {
+    if (!q || q <= 0 || !Number.isInteger(q)) {
       setError('Quantidade inválida');
       return;
     }
@@ -147,7 +147,7 @@ export default function SetorDemandasPage() {
       return;
     }
     const items = cart.map(i => ({ produto_id: i.produto_id, quantidade: Number(i.quantidade), observacao: i.observacao || undefined }));
-    if (items.some(i => !i.quantidade || i.quantidade <= 0)) {
+    if (items.some(i => !i.quantidade || i.quantidade <= 0 || !Number.isInteger(i.quantidade))) {
       setError('Há itens com quantidade inválida');
       return;
     }
@@ -266,7 +266,7 @@ export default function SetorDemandasPage() {
                         {p.codigo && <span>Cód: {p.codigo}</span>}
                         {p.unidade && <span>Un: {p.unidade}</span>}
                         {p.categoria && <span>Cat: {p.categoria}</span>}
-                        <span className="text-gray-600">Em estoque: {Number(estoqueSetorByProdutoId[String(p.id)] || 0).toFixed(2)}</span>
+                        <span className="text-gray-600">Em estoque: {Math.round(Number(estoqueSetorByProdutoId[String(p.id)] || 0))}</span>
                       </div>
                     </button>
                   ))}
@@ -275,7 +275,7 @@ export default function SetorDemandasPage() {
             </div>
             {produtoSelected && (
               <div className="mt-2 text-xs text-gray-500">
-                Selecionado: {produtoSelected.nome} · Em estoque no setor: {Number(estoqueSetorByProdutoId[String(produtoSelected.id)] || 0).toFixed(2)}
+                Selecionado: {produtoSelected.nome} · Em estoque no setor: {Math.round(Number(estoqueSetorByProdutoId[String(produtoSelected.id)] || 0))}
               </div>
             )}
           </div>
@@ -285,8 +285,8 @@ export default function SetorDemandasPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Quantidade</label>
               <input
                 type="number"
-                min="0"
-                step="0.01"
+                min="1"
+                step="1"
                 value={quantidade}
                 onChange={e => setQuantidade(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none"
@@ -327,7 +327,7 @@ export default function SetorDemandasPage() {
                       <div className="font-medium text-gray-900 truncate">{i.produto_nome}</div>
                       <div className="text-xs text-gray-500">{i.produto_codigo}</div>
                       <div className="text-xs text-gray-500 mt-1">Qtd: {i.quantidade}</div>
-                      <div className="text-xs text-gray-600 mt-1">Em estoque no setor: {Number(estoqueSetorByProdutoId[String(i.produto_id)] || 0).toFixed(2)}</div>
+                      <div className="text-xs text-gray-600 mt-1">Em estoque no setor: {Math.round(Number(estoqueSetorByProdutoId[String(i.produto_id)] || 0))}</div>
                       {i.observacao && <div className="text-xs text-gray-500 mt-1">Obs: {i.observacao}</div>}
                     </div>
                     <button type="button" onClick={() => removeItem(i.produto_id)} className="text-sm text-red-600 hover:underline">
@@ -360,7 +360,7 @@ export default function SetorDemandasPage() {
                       <div key={`${d.id}:${idx}`} className="text-sm text-gray-800 flex items-center justify-between gap-2">
                         <span className="truncate">{it.produto_nome}</span>
                         <span className="text-xs text-gray-600">
-                          {Number(it.atendido || 0).toFixed(2)}/{Number(it.quantidade || 0).toFixed(2)}
+                          {Math.round(Number(it.atendido || 0))}/{Math.round(Number(it.quantidade || 0))}
                         </span>
                       </div>
                     ))}

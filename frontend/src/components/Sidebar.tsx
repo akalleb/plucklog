@@ -4,7 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { Package, ArrowLeftRight, Home, LogOut, PackagePlus, Truck, Box, Users, BarChart, Menu, Warehouse, UserCircle, MapPin, ShoppingCart, X } from 'lucide-react';
+import { Package, ArrowLeftRight, Home, LogOut, PackagePlus, Truck, Box, Users, BarChart, Menu, Warehouse, UserCircle, MapPin, ShoppingCart, X, FileText } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
 export default function Sidebar() {
@@ -187,6 +187,19 @@ export default function Sidebar() {
             >
               <MapPin className="h-5 w-5" />
               <span className="font-medium">Saída (Setores)</span>
+            </Link>
+          )}
+
+          {(canAccess(['super_admin', 'admin_central', 'gerente_almox', 'resp_sub_almox'])) && (
+            <Link
+              href="/saida-justificada"
+              onClick={() => setIsOpen(false)}
+              className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group ${
+                pathname === '/saida-justificada' ? 'bg-orange-50 text-orange-600' : 'text-gray-600 hover:bg-orange-50 hover:text-orange-600'
+              }`}
+            >
+              <FileText className="h-5 w-5" />
+              <span className="font-medium">Saída Justificada</span>
             </Link>
           )}
 

@@ -37,6 +37,27 @@ export default function MovimentacoesPage() {
   const [filterTipo, setFilterTipo] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
 
+  const getTipoInfo = (tipo: string) => {
+    const t = (tipo || '').toLowerCase();
+    if (t === 'entrada') {
+      return { label: 'Entrada', badge: 'bg-green-100 text-green-800', negative: false };
+    }
+    if (t === 'saida') {
+      return { label: 'Saída', badge: 'bg-red-100 text-red-800', negative: true };
+    }
+    if (t === 'saida_justificada') {
+      return { label: 'Saída Justificada', badge: 'bg-red-100 text-red-800', negative: true };
+    }
+    if (t === 'distribuicao') {
+      return { label: 'Distribuição', badge: 'bg-red-100 text-red-800', negative: true };
+    }
+    if (t === 'transferencia') {
+      return { label: 'Transferência', badge: 'bg-blue-100 text-blue-800', negative: false };
+    }
+    const label = (tipo || '').replace(/_/g, ' ').trim() || 'Outros';
+    return { label, badge: 'bg-blue-100 text-blue-800', negative: false };
+  };
+
   const fetchData = useCallback(async () => {
     if (!user?.id) {
       setLoading(false);
@@ -122,6 +143,7 @@ export default function MovimentacoesPage() {
             <option value="">Todos os Tipos</option>
             <option value="entrada">Entrada</option>
             <option value="saida">Saída</option>
+            <option value="saida_justificada">Saída Justificada</option>
             <option value="transferencia">Transferência</option>
             <option value="distribuicao">Distribuição</option>
           </select>
@@ -155,6 +177,9 @@ export default function MovimentacoesPage() {
                 </tr>
               ) : (
                 data?.items.map((mov) => (
+                  (() => {
+                    const tipoInfo = getTipoInfo(mov.tipo);
+                    return (
                   <tr key={mov.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4 text-gray-500 whitespace-nowrap">
                       <div className="flex items-center gap-2">
@@ -163,12 +188,8 @@ export default function MovimentacoesPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${
-                        mov.tipo === 'entrada' ? 'bg-green-100 text-green-800' :
-                        mov.tipo === 'saida' ? 'bg-red-100 text-red-800' :
-                        'bg-blue-100 text-blue-800'
-                      }`}>
-                        {mov.tipo}
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${tipoInfo.badge}`}>
+                        {tipoInfo.label}
                       </span>
                     </td>
                     <td className="px-6 py-4 font-medium text-gray-900">{mov.produto_nome}</td>
@@ -179,13 +200,15 @@ export default function MovimentacoesPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 text-right font-mono font-medium">
-                      {mov.tipo === 'saida' || mov.tipo === 'distribuicao' ? '-' : '+'}
+                      {tipoInfo.negative ? '-' : '+'}
                       {Math.round(mov.quantidade)}
                     </td>
                     <td className="px-6 py-4 text-gray-500 text-xs">
                       {mov.usuario || 'Sistema'}
                     </td>
                   </tr>
+                    );
+                  })()
                 ))
               )}
             </tbody>

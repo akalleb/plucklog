@@ -515,6 +515,39 @@ def test_fastapi_movimentacoes_filtra_por_central():
     assert len(items) == 1
     assert items[0].get("produto_nome") == "Produto 1"
 
+def test_fastapi_movimentacoes_tipo_saida_inclui_saida_justificada():
+    import asyncio
+    from datetime import datetime, timezone
+
+    from bson import ObjectId
+    import mongomock
+
+    from fastapi_app.main import MONGO_DB
+    from fastapi_app.main import _AsyncMockDatabase
+    from fastapi_app.main import db as fastapi_db
+    from fastapi_app.main import get_movimentacoes
+
+    fastapi_db.db = _AsyncMockDatabase(mongomock.MongoClient()[MONGO_DB])
+    fastapi_db.client = None
+    fastapi_db.is_mock = True
+
+    now = datetime.now(timezone.utc)
+    user_id = ObjectId()
+
+    async def _seed():
+        await fastapi_db.db.centrais.insert_one({"id": "CENT1", "nome": "Central 1"})
+        await fastapi_db.db.usuarios.insert_one({"_id": user_id, "role": "admin_central", "scope_id": "CENT1", "ativo": True})
+        await fastapi_db.db.produtos.insert_one({"id": "P1", "nome": "Produto 1", "codigo": "P1", "central_id": "CENT1"})
+        await fastapi_db.db.movimentacoes.insert_one({"produto_id": "P1", "tipo": "saida_justificada", "quantidade": 1, "data_movimentacao": now, "created_at": now})
+
+    asyncio.run(_seed())
+
+    user_ctx = {"id": str(user_id), "role": "admin_central", "scope_id": "CENT1"}
+    resp = asyncio.run(get_movimentacoes(page=1, per_page=20, tipo="saida", produto=None, user=user_ctx))
+    items = resp.get("items") or []
+    assert len(items) == 1
+    assert items[0].get("tipo") == "saida_justificada"
+
 
 def test_fastapi_update_lote_grava_observacao_quando_usuario_central_altera_quantidade():
     import asyncio
@@ -578,3 +611,68 @@ def test_fastapi_update_lote_grava_observacao_quando_usuario_central_altera_quan
     obs = prod.get("observacoes") or ""
     assert "[LOTE]" in obs
     assert "L001" in obs
+
+
+def test_fastapi_saida_justificada_decrementa_estoque_e_registra_movimentacao():
+    import asyncio
+    from datetime import datetime, timezone
+
+    from bson import ObjectId
+    import mongomock
+
+    from fastapi_app.main import MONGO_DB
+    from fastapi_app.main import SaidaJustificadaRequest
+    from fastapi_app.main import _AsyncMockDatabase
+    from fastapi_app.main import db as fastapi_db
+    from fastapi_app.main import post_saida_justificada
+
+    fastapi_db.db = _AsyncMockDatabase(mongomock.MongoClient()[MONGO_DB])
+    fastapi_db.client = None
+    fastapi_db.is_mock = True
+
+    now = datetime.now(timezone.utc)
+    user_id = ObjectId()
+    produto_oid = ObjectId()
+
+    async def _seed():
+        await fastapi_db.db.centrais.insert_one({"id": "CENT1", "nome": "Central 1"})
+        await fastapi_db.db.usuarios.insert_one({"_id": user_id, "role": "admin_central", "scope_id": "CENT1", "ativo": True})
+        await fastapi_db.db.almoxarifados.insert_one({"id": "ALMOX1", "nome": "Almox 1", "central_id": "CENT1"})
+        await fastapi_db.db.produtos.insert_one({"_id": produto_oid, "nome": "Produto Teste", "codigo": "P-TESTE", "central_id": "CENT1"})
+        await fastapi_db.db.estoques.insert_one(
+            {
+                "produto_id": str(produto_oid),
+                "local_tipo": "almoxarifado",
+                "local_id": "ALMOX1",
+                "almoxarifado_id": "ALMOX1",
+                "quantidade": 50.0,
+                "quantidade_atual": 50.0,
+                "quantidade_disponivel": 50.0,
+                "created_at": now,
+                "updated_at": now,
+            }
+        )
+
+    asyncio.run(_seed())
+
+    user_ctx = {"id": str(user_id), "role": "admin_central", "scope_id": "CENT1"}
+    req = SaidaJustificadaRequest(
+        produto_id=str(produto_oid),
+        origem_tipo="almoxarifado",
+        origem_id="ALMOX1",
+        quantidade=10,
+        justificativa="Perda/avaria",
+        data_movimentacao=now,
+    )
+    asyncio.run(post_saida_justificada(req=req, user=user_ctx))
+
+    async def _read_estoque():
+        return await fastapi_db.db.estoques.find_one({"produto_id": str(produto_oid), "local_tipo": "almoxarifado", "local_id": "ALMOX1"})
+
+    async def _read_movs():
+        return await fastapi_db.db.movimentacoes.find({"produto_id": str(produto_oid)}).to_list(length=10)
+
+    estoque_doc = asyncio.run(_read_estoque()) or {}
+    assert float(estoque_doc.get("quantidade_disponivel", 0)) == 40.0
+    movs = asyncio.run(_read_movs()) or []
+    assert any(m.get("tipo") == "saida_justificada" and (m.get("observacoes") or "") == "Perda/avaria" for m in movs)

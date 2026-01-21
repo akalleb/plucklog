@@ -1364,7 +1364,13 @@ async def get_movimentacoes(
         query = {"$and": [query, scope_filter]} if query else scope_filter
     
     if tipo:
-        query = {"$and": [query, {"tipo": tipo}]} if query else {"tipo": tipo}
+        tipo_norm = (tipo or "").strip().lower()
+        if tipo_norm:
+            if tipo_norm == "saida":
+                tipo_filter: Dict[str, Any] = {"tipo": {"$in": ["saida", "saida_justificada"]}}
+            else:
+                tipo_filter = {"tipo": tipo_norm}
+            query = {"$and": [query, tipo_filter]} if query else tipo_filter
         
     if produto:
          # Busca produto primeiro para filtrar por ID
@@ -2396,6 +2402,14 @@ class SetorConsumoRequest(BaseModel):
     produto_id: str
     quantidade: float
     observacoes: Optional[str] = None
+
+class SaidaJustificadaRequest(BaseModel):
+    produto_id: str
+    origem_tipo: str
+    origem_id: str
+    quantidade: float
+    justificativa: str
+    data_movimentacao: Optional[datetime] = None
 
 class DemandaItemRequest(BaseModel):
     produto_id: str
@@ -3659,6 +3673,96 @@ async def post_consumo_setor(req: SetorConsumoRequest, user: Dict[str, Any] = De
     }
     await db.db.movimentacoes.insert_one(mov_doc)
     return {"status": "success", "message": "Consumo registrado com sucesso"}
+
+@app.post("/api/movimentacoes/saida_justificada")
+async def post_saida_justificada(
+    req: SaidaJustificadaRequest,
+    user: Dict[str, Any] = Depends(_require_roles(["super_admin", "admin_central", "gerente_almox", "resp_sub_almox"])),
+):
+    if req.quantidade <= 0:
+        raise HTTPException(status_code=400, detail="Quantidade deve ser maior que zero")
+    justificativa = (req.justificativa or "").strip()
+    if not justificativa:
+        raise HTTPException(status_code=400, detail="Justificativa é obrigatória")
+
+    origem_tipo = (req.origem_tipo or "").strip()
+    if origem_tipo not in ("almoxarifado", "sub_almoxarifado"):
+        raise HTTPException(status_code=400, detail="Tipo de origem inválido")
+    origem_id = (req.origem_id or "").strip()
+    if not origem_id:
+        raise HTTPException(status_code=400, detail="Origem não informada")
+
+    role = (user.get("role") or "").strip()
+    scope_id = _norm_id(user.get("scope_id"))
+    allowed_central = await _allowed_central_ids_for_user(user) if role != "super_admin" else []
+
+    prod_query = {"$or": [{"_id": req.produto_id}, {"id": req.produto_id}, {"codigo": req.produto_id}]}
+    if ObjectId.is_valid(req.produto_id):
+        prod_query["$or"].append({"_id": ObjectId(req.produto_id)})
+    elif req.produto_id.isdigit():
+        prod_query["$or"].append({"id": int(req.produto_id)})
+    if role != "super_admin":
+        central_id = await _compute_user_central_id(role, scope_id, None, strict=False)
+        if central_id:
+            allowed_central = list(dict.fromkeys(allowed_central + _id_candidates(central_id)))
+        if not allowed_central:
+            raise HTTPException(status_code=403, detail="Acesso negado")
+        prod_query = {"$and": [prod_query, {"central_id": {"$in": allowed_central}}]}
+
+    produto = await db.db.produtos.find_one(prod_query)
+    if not produto:
+        raise HTTPException(status_code=404, detail="Produto não encontrado")
+    pid_out = produto.get("id") if produto.get("id") is not None else str(produto.get("_id"))
+
+    origem_nome = "Origem"
+    origem_doc = await db.db[("almoxarifados" if origem_tipo == "almoxarifado" else "sub_almoxarifados")].find_one(_build_id_query(origem_id))
+    if not origem_doc:
+        raise HTTPException(status_code=404, detail="Local de origem não encontrado")
+    origem_id_out = _public_id(origem_doc) or origem_id
+    origem_nome = origem_doc.get("nome") or origem_nome
+
+    pid_vals = await _produto_id_candidates(pid_out)
+    lid_vals = _id_candidates(origem_id_out)
+
+    estoque = await db.db.estoques.find_one({"produto_id": {"$in": pid_vals}, "local_tipo": origem_tipo, "local_id": {"$in": lid_vals}})
+    if not estoque and origem_tipo == "almoxarifado":
+        estoque = await db.db.estoques.find_one({"produto_id": {"$in": pid_vals}, "almoxarifado_id": {"$in": lid_vals}})
+    if not estoque and origem_tipo == "sub_almoxarifado":
+        estoque = await db.db.estoques.find_one({"produto_id": {"$in": pid_vals}, "sub_almoxarifado_id": {"$in": lid_vals}})
+    if not estoque:
+        raise HTTPException(status_code=400, detail="Não há estoque correspondente na origem")
+
+    saldo_atual = float(estoque.get("quantidade_disponivel", 0) or 0)
+    if saldo_atual < req.quantidade:
+        raise HTTPException(status_code=400, detail=f"Saldo insuficiente na origem. Disponível: {saldo_atual}")
+
+    now = _now_utc()
+    data_mov = req.data_movimentacao or now
+
+    await db.db.estoques.update_one(
+        {"_id": estoque.get("_id")},
+        {"$inc": {"quantidade": -req.quantidade, "quantidade_atual": -req.quantidade, "quantidade_disponivel": -req.quantidade}, "$set": {"updated_at": now}},
+    )
+
+    mov_doc = {
+        "produto_id": pid_out,
+        "tipo": "saida_justificada",
+        "quantidade": req.quantidade,
+        "data_movimentacao": data_mov,
+        "origem_nome": origem_nome,
+        "destino_nome": "Saída Justificada",
+        "usuario_responsavel": user.get("id"),
+        "observacoes": justificativa,
+        "justificativa": justificativa,
+        "central_id": _norm_id(produto.get("central_id")) if produto else None,
+        "local_origem_id": origem_id_out,
+        "local_origem_tipo": origem_tipo,
+        "local_destino_id": None,
+        "local_destino_tipo": "externo",
+        "created_at": now,
+    }
+    await db.db.movimentacoes.insert_one(mov_doc)
+    return {"status": "success", "message": "Saída justificada registrada com sucesso"}
 
 @app.get("/api/demandas")
 async def get_demandas(

@@ -7,7 +7,7 @@ import os
 import math
 import mongomock
 from pydantic import BaseModel, Field
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
 from pymongo.errors import DuplicateKeyError
 
@@ -4428,6 +4428,121 @@ async def get_chart_movimentacoes():
         
     # Retornar lista ordenada
     return sorted(list(processed.values()), key=lambda x: x["date"])[-7:]
+
+@app.get("/api/relatorios/consumo_setores")
+async def get_relatorio_consumo_setores(user: Dict[str, Any] = Depends(get_current_user)):
+    role = (user.get("role") or "").strip()
+    if role not in ("super_admin", "admin_central"):
+        raise HTTPException(status_code=403, detail="Acesso negado")
+
+    if db.db is None:
+        return {"items": [], "range": {"week_start": None, "month_start": None, "now": None}}
+
+    scope_id = _norm_id(user.get("scope_id"))
+    setores_docs = await db.db.setores.find().to_list(length=20000)
+    allowed_setores: List[Dict[str, Any]] = []
+    for s in setores_docs:
+        if role == "admin_central":
+            if not scope_id:
+                continue
+            chain = await _resolve_parent_chain_from_setor(s)
+            if _norm_id(chain.get("central_id")) != scope_id:
+                continue
+        allowed_setores.append(s)
+
+    allowed_ids: List[Any] = []
+    allowed_names: List[str] = []
+    setor_id_by_name: Dict[str, str] = {}
+    setor_name_by_id: Dict[str, str] = {}
+    for s in allowed_setores:
+        sid = _public_id(s) or str(s.get("_id"))
+        nome = str(s.get("nome") or "").strip() or sid
+        allowed_ids.append(sid)
+        allowed_names.append(nome)
+        setor_id_by_name[nome] = str(sid)
+        setor_name_by_id[str(sid)] = nome
+        setor_name_by_id[str(s.get("_id"))] = nome
+        if s.get("id") is not None:
+            setor_name_by_id[str(s.get("id"))] = nome
+
+    allowed_id_vals: List[Any] = []
+    for sid in allowed_ids:
+        allowed_id_vals.append(sid)
+        if str(sid).isdigit():
+            allowed_id_vals.append(int(str(sid)))
+        if ObjectId.is_valid(str(sid)):
+            allowed_id_vals.append(ObjectId(str(sid)))
+    allowed_id_vals = list(dict.fromkeys(allowed_id_vals))
+    allowed_names = list(dict.fromkeys([n for n in allowed_names if n]))
+
+    now = _now_utc()
+    week_start = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    base_match: Dict[str, Any] = {
+        "tipo": "saida",
+        "local_origem_tipo": "setor",
+        "local_destino_tipo": "consumo",
+        "data_movimentacao": {"$exists": True},
+    }
+
+    async def _aggregate_totals(start_dt: datetime) -> Dict[str, float]:
+        out: Dict[str, float] = {}
+
+        if allowed_id_vals:
+            match_ids: Dict[str, Any] = {"$and": [base_match, {"data_movimentacao": {"$gte": start_dt}}, {"local_origem_id": {"$in": allowed_id_vals}}]}
+            pipeline_ids = [{"$match": match_ids}, {"$group": {"_id": "$local_origem_id", "total": {"$sum": "$quantidade"}}}]
+            raw_ids = await db.db.movimentacoes.aggregate(pipeline_ids).to_list(length=100000)
+            for r in raw_ids or []:
+                key = str(r.get("_id") or "").strip()
+                if not key:
+                    continue
+                total = float(r.get("total") or 0)
+                if key in setor_name_by_id:
+                    out[key] = out.get(key, 0.0) + total
+
+        if allowed_names:
+            match_names: Dict[str, Any] = {
+                "$and": [
+                    base_match,
+                    {"data_movimentacao": {"$gte": start_dt}},
+                    {"origem_nome": {"$in": allowed_names}},
+                    {"$or": [{"local_origem_id": {"$exists": False}}, {"local_origem_id": None}, {"local_origem_id": ""}]},
+                ]
+            }
+            pipeline_names = [{"$match": match_names}, {"$group": {"_id": "$origem_nome", "total": {"$sum": "$quantidade"}}}]
+            raw_names = await db.db.movimentacoes.aggregate(pipeline_names).to_list(length=100000)
+            for r in raw_names or []:
+                nome = str(r.get("_id") or "").strip()
+                if not nome:
+                    continue
+                sid = setor_id_by_name.get(nome)
+                if not sid:
+                    continue
+                total = float(r.get("total") or 0)
+                out[sid] = out.get(sid, 0.0) + total
+        return out
+
+    week_totals = await _aggregate_totals(week_start)
+    month_totals = await _aggregate_totals(month_start)
+
+    items = []
+    for s in allowed_setores:
+        sid = _public_id(s) or str(s.get("_id"))
+        nome = str(s.get("nome") or "").strip() or str(sid)
+        items.append(
+            {
+                "setor_id": str(sid),
+                "setor_nome": nome,
+                "consumo_semana": float(week_totals.get(str(sid), 0.0) or 0.0),
+                "consumo_mes": float(month_totals.get(str(sid), 0.0) or 0.0),
+            }
+        )
+    items.sort(key=lambda x: str(x.get("setor_nome") or "").lower())
+    return {
+        "items": items,
+        "range": {"week_start": _dt_to_utc_iso(week_start), "month_start": _dt_to_utc_iso(month_start), "now": _dt_to_utc_iso(now)},
+    }
 
 # Adaptador para Vercel Serverless
 from mangum import Mangum

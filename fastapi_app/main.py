@@ -90,6 +90,9 @@ class _AsyncMockCollection:
     async def update_one(self, *args, **kwargs):
         return self._collection.update_one(*args, **kwargs)
 
+    async def find_one_and_update(self, *args, **kwargs):
+        return self._collection.find_one_and_update(*args, **kwargs)
+
     async def delete_one(self, *args, **kwargs):
         return self._collection.delete_one(*args, **kwargs)
 
@@ -1422,6 +1425,46 @@ async def get_movimentacoes(
         return mapping
 
     prod_map = await fetch_map_simple("produtos", list(prod_ids))
+
+    user_ids = set()
+    for m in movs:
+        if m.get("usuario_responsavel"):
+            user_ids.add(m.get("usuario_responsavel"))
+
+    async def fetch_user_map(ids):
+        if not ids:
+            return {}
+        obj_ids: List[ObjectId] = []
+        other_ids: List[Any] = []
+        for raw in ids:
+            if raw is None:
+                continue
+            s = str(raw)
+            other_ids.append(s)
+            if s.isdigit():
+                other_ids.append(int(s))
+            if ObjectId.is_valid(s):
+                obj_ids.append(ObjectId(s))
+        obj_ids = list(dict.fromkeys(obj_ids))
+        other_ids = list(dict.fromkeys(other_ids))
+        ors: List[Dict[str, Any]] = []
+        if obj_ids:
+            ors.append({"_id": {"$in": obj_ids}})
+        if other_ids:
+            ors.append({"id": {"$in": other_ids}})
+        if not ors:
+            return {}
+        docs = await db.db.usuarios.find({"$or": ors}, {"_id": 1, "id": 1, "nome": 1, "username": 1}).to_list(length=len(ids))
+        mapping: Dict[str, str] = {}
+        for u in docs:
+            display = (u.get("nome") or u.get("username") or "").strip() or str(u.get("_id"))
+            if u.get("_id") is not None:
+                mapping[str(u.get("_id"))] = display
+            if u.get("id") is not None:
+                mapping[str(u.get("id"))] = display
+        return mapping
+
+    user_map = await fetch_user_map(list(user_ids))
     
     results = []
     for m in movs:
@@ -1430,6 +1473,8 @@ async def get_movimentacoes(
         
         # Data
         dt = m.get("data_movimentacao") or m.get("created_at") or _now_utc()
+        usuario_raw = m.get("usuario_responsavel")
+        usuario_nome = user_map.get(str(usuario_raw)) if usuario_raw is not None else None
         
         results.append({
             "id": str(m.get("_id")),
@@ -1439,7 +1484,7 @@ async def get_movimentacoes(
             "data": _dt_to_utc_iso(dt),
             "origem": m.get("origem_nome", "-"),
             "destino": m.get("destino_nome", "-"),
-            "usuario": m.get("usuario_responsavel"),
+            "usuario": usuario_nome or (str(usuario_raw) if usuario_raw is not None else None),
             "nota_fiscal": m.get("nota_fiscal")
         })
         
@@ -1537,11 +1582,53 @@ async def get_movimentacoes_por_setor(
 
     prod_map = await fetch_map_simple("produtos", list(prod_ids))
 
+    user_ids = set()
+    for m in movs:
+        if m.get("usuario_responsavel") is not None:
+            user_ids.add(m.get("usuario_responsavel"))
+
+    async def fetch_user_map(ids):
+        if not ids:
+            return {}
+        obj_ids: List[ObjectId] = []
+        other_ids: List[Any] = []
+        for raw in ids:
+            if raw is None:
+                continue
+            s = str(raw)
+            other_ids.append(s)
+            if s.isdigit():
+                other_ids.append(int(s))
+            if ObjectId.is_valid(s):
+                obj_ids.append(ObjectId(s))
+        obj_ids = list(dict.fromkeys(obj_ids))
+        other_ids = list(dict.fromkeys(other_ids))
+        ors: List[Dict[str, Any]] = []
+        if obj_ids:
+            ors.append({"_id": {"$in": obj_ids}})
+        if other_ids:
+            ors.append({"id": {"$in": other_ids}})
+        if not ors:
+            return {}
+        docs = await db.db.usuarios.find({"$or": ors}, {"_id": 1, "id": 1, "nome": 1, "username": 1}).to_list(length=len(ids))
+        mapping: Dict[str, str] = {}
+        for u in docs:
+            display = (u.get("nome") or u.get("username") or "").strip() or str(u.get("_id"))
+            if u.get("_id") is not None:
+                mapping[str(u.get("_id"))] = display
+            if u.get("id") is not None:
+                mapping[str(u.get("id"))] = display
+        return mapping
+
+    user_map = await fetch_user_map(list(user_ids))
+
     results = []
     for m in movs:
         pid = str(m.get("produto_id"))
         p = prod_map.get(pid, {})
         dt = m.get("data_movimentacao") or m.get("created_at") or _now_utc()
+        usuario_raw = m.get("usuario_responsavel")
+        usuario_nome = user_map.get(str(usuario_raw)) if usuario_raw is not None else None
         results.append({
             "id": str(m.get("_id")),
             "produto_nome": p.get("nome", "Produto Removido"),
@@ -1550,7 +1637,7 @@ async def get_movimentacoes_por_setor(
             "data": _dt_to_utc_iso(dt),
             "origem": m.get("origem_nome", "-"),
             "destino": m.get("destino_nome", "-"),
-            "usuario": m.get("usuario_responsavel"),
+            "usuario": usuario_nome or (str(usuario_raw) if usuario_raw is not None else None),
             "nota_fiscal": m.get("nota_fiscal"),
         })
 
@@ -3613,6 +3700,143 @@ async def post_distribuicao(req: MovimentacaoRequest, user: Dict[str, Any] = Dep
     await db.db.movimentacoes.insert_one(mov_doc)
     
     return {"status": "success", "message": "Distribuição realizada com sucesso"}
+
+@app.post("/api/movimentacoes/estorno_distribuicao")
+async def post_estorno_distribuicao(req: MovimentacaoRequest, user: Dict[str, Any] = Depends(get_current_user)):
+    if req.quantidade <= 0:
+        raise HTTPException(status_code=400, detail="Quantidade deve ser maior que zero")
+
+    role = user.get("role")
+    scope_id = user.get("scope_id")
+    if role not in ("super_admin", "admin_central", "gerente_almox", "resp_sub_almox"):
+        raise HTTPException(status_code=403, detail="Acesso negado")
+    if role != "super_admin" and not scope_id:
+        raise HTTPException(status_code=400, detail="Usuário sem escopo associado")
+
+    origem_tipo = (req.origem_tipo or "").strip()
+    if origem_tipo != "setor":
+        raise HTTPException(status_code=400, detail="Origem inválida para estorno (use setor)")
+
+    destino_tipo = (req.destino_tipo or "").strip()
+    if destino_tipo not in ("almoxarifado", "sub_almoxarifado"):
+        raise HTTPException(status_code=400, detail="Destino inválido para estorno")
+
+    prod_query = {"$or": [{"_id": req.produto_id}, {"id": req.produto_id}, {"codigo": req.produto_id}]}
+    if ObjectId.is_valid(req.produto_id):
+        prod_query["$or"].append({"_id": ObjectId(req.produto_id)})
+    elif req.produto_id.isdigit():
+        prod_query["$or"].append({"id": int(req.produto_id)})
+    produto = await db.db.produtos.find_one(prod_query)
+    if not produto:
+        raise HTTPException(status_code=404, detail="Produto não encontrado")
+    pid_out = produto.get("id") if produto.get("id") is not None else str(produto.get("_id"))
+
+    setor = await db.db.setores.find_one(_build_id_query(req.origem_id))
+    if not setor:
+        raise HTTPException(status_code=404, detail="Setor de origem não encontrado")
+    setor_id = _public_id(setor) or req.origem_id
+    setor_nome = (setor.get("nome") or "Setor").strip() or "Setor"
+
+    dest_coll = "almoxarifados" if destino_tipo == "almoxarifado" else "sub_almoxarifados"
+    destino = await db.db[dest_coll].find_one(_build_id_query(req.destino_id))
+    if not destino:
+        raise HTTPException(status_code=404, detail="Destino não encontrado")
+    did_out = _public_id(destino) or req.destino_id
+    destino_nome = (destino.get("nome") or "Destino").strip() or "Destino"
+
+    chain_origem = await _resolve_parent_chain_from_setor(setor)
+    origem_central_id = _norm_id(chain_origem.get("central_id"))
+
+    dest_almox_id: Optional[str] = None
+    dest_almox: Optional[Dict[str, Any]] = None
+    destino_central_id: Optional[str] = None
+    if destino_tipo == "almoxarifado":
+        destino_central_id = _norm_id(destino.get("central_id"))
+    else:
+        dest_almox_id = _norm_id(destino.get("almoxarifado_id"))
+        dest_almox = await db.db.almoxarifados.find_one(_build_id_query(dest_almox_id or ""))
+        destino_central_id = _norm_id(dest_almox.get("central_id")) if dest_almox else None
+
+    if origem_central_id and destino_central_id and origem_central_id != destino_central_id:
+        raise HTTPException(status_code=403, detail="Estorno só é permitido dentro da mesma central")
+
+    if role == "resp_sub_almox":
+        if destino_tipo != "sub_almoxarifado":
+            raise HTTPException(status_code=403, detail="Acesso negado")
+        if _norm_id(did_out) != _norm_id(scope_id):
+            raise HTTPException(status_code=403, detail="Acesso negado")
+    elif role == "gerente_almox":
+        if destino_tipo == "almoxarifado":
+            if _norm_id(did_out) != _norm_id(scope_id):
+                raise HTTPException(status_code=403, detail="Acesso negado")
+        else:
+            if not dest_almox_id or _norm_id(dest_almox_id) != _norm_id(scope_id):
+                raise HTTPException(status_code=403, detail="Acesso negado")
+    elif role == "admin_central":
+        if not origem_central_id or _norm_id(origem_central_id) != _norm_id(scope_id):
+            raise HTTPException(status_code=403, detail="Acesso negado")
+
+    sid_values = _id_candidates(setor_id)
+    if str(setor_id).isdigit():
+        sid_values.append(int(str(setor_id)))
+    sid_values = list(dict.fromkeys(sid_values))
+
+    estoque_setor = await db.db.estoques.find_one(
+        {
+            "produto_id": pid_out,
+            "$or": [
+                {"setor_id": {"$in": sid_values}},
+                {"local_tipo": "setor", "local_id": {"$in": sid_values}},
+            ],
+        }
+    )
+    saldo_setor = float(estoque_setor.get("quantidade_disponivel", 0)) if estoque_setor else 0.0
+    if saldo_setor < req.quantidade:
+        raise HTTPException(status_code=400, detail=f"Saldo insuficiente no setor. Disponível: {saldo_setor}")
+
+    now = _now_utc()
+
+    await db.db.estoques.update_one(
+        {"_id": estoque_setor["_id"]},
+        {"$inc": {"quantidade": -req.quantidade, "quantidade_disponivel": -req.quantidade}, "$set": {"updated_at": now}},
+    )
+
+    estoque_dest_filter = {"produto_id": pid_out, "local_tipo": destino_tipo, "local_id": did_out}
+    estoque_dest_update: Dict[str, Any] = {
+        "$inc": {"quantidade": req.quantidade, "quantidade_disponivel": req.quantidade},
+        "$set": {"produto_id": pid_out, "local_tipo": destino_tipo, "local_id": did_out, "nome_local": destino_nome, "updated_at": now},
+        "$setOnInsert": {"created_at": now},
+    }
+    if destino_tipo == "almoxarifado":
+        estoque_dest_update["$set"]["almoxarifado_id"] = did_out
+        estoque_dest_update["$set"]["sub_almoxarifado_id"] = None
+        estoque_dest_update["$set"]["setor_id"] = None
+    else:
+        estoque_dest_update["$set"]["sub_almoxarifado_id"] = did_out
+        almox_id = _norm_id(destino.get("almoxarifado_id"))
+        estoque_dest_update["$set"]["almoxarifado_id"] = _public_id(dest_almox) or almox_id if dest_almox else almox_id
+        estoque_dest_update["$set"]["setor_id"] = None
+
+    await db.db.estoques.find_one_and_update(estoque_dest_filter, estoque_dest_update, upsert=True)
+
+    mov_doc = {
+        "produto_id": pid_out,
+        "tipo": "estorno_distribuicao",
+        "quantidade": req.quantidade,
+        "data_movimentacao": now,
+        "origem_nome": setor_nome,
+        "destino_nome": destino_nome,
+        "usuario_responsavel": user.get("id"),
+        "observacoes": req.observacoes,
+        "central_id": _norm_id(produto.get("central_id")) if produto else None,
+        "local_origem_id": setor_id,
+        "local_origem_tipo": "setor",
+        "local_destino_id": did_out,
+        "local_destino_tipo": destino_tipo,
+        "created_at": now,
+    }
+    await db.db.movimentacoes.insert_one(mov_doc)
+    return {"status": "success", "message": "Estorno realizado com sucesso"}
 
 @app.post("/api/movimentacoes/consumo")
 async def post_consumo_setor(req: SetorConsumoRequest, user: Dict[str, Any] = Depends(_require_roles(["operador_setor"]))):

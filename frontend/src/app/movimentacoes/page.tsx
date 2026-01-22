@@ -51,6 +51,9 @@ export default function MovimentacoesPage() {
     if (t === 'distribuicao') {
       return { label: 'Distribuição', badge: 'bg-red-100 text-red-800', negative: true };
     }
+    if (t === 'estorno_distribuicao') {
+      return { label: 'Estorno', badge: 'bg-blue-100 text-blue-800', negative: false };
+    }
     if (t === 'transferencia') {
       return { label: 'Transferência', badge: 'bg-blue-100 text-blue-800', negative: false };
     }

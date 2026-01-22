@@ -46,6 +46,9 @@ export default function SaidaSetorPage() {
 
   const [tab, setTab] = useState<'central' | 'selecionados' | 'setor'>('central');
   const [filtro, setFiltro] = useState('');
+  const [undoProdutoId, setUndoProdutoId] = useState<string | null>(null);
+  const [undoQuantidade, setUndoQuantidade] = useState('');
+  const [undoDestinoKey, setUndoDestinoKey] = useState('');
 
   const fetchAll = useCallback(async (u: { id: string }) => {
     const headers = { 'X-User-Id': u.id };
@@ -82,6 +85,15 @@ export default function SaidaSetorPage() {
     if (!q) return centralProdutos;
     return centralProdutos.filter(p => (p.produto_nome || '').toLowerCase().includes(q) || (p.produto_codigo || '').toLowerCase().includes(q));
   }, [centralProdutos, filtro]);
+
+  const destinosByProdutoId = useMemo(() => {
+    const map = new Map<string, Origem[]>();
+    for (const p of centralProdutos) {
+      const origens = [...(p.origens || [])].sort((a, b) => (b.quantidade_disponivel || 0) - (a.quantidade_disponivel || 0));
+      map.set(p.produto_id, origens);
+    }
+    return map;
+  }, [centralProdutos]);
 
   const addToCart = (p: CentralProduto) => {
     setSuccess('');
@@ -176,6 +188,74 @@ export default function SaidaSetorPage() {
       setTab('setor');
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Erro ao enviar');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const iniciarEstorno = (produto_id: string) => {
+    setSuccess('');
+    setError('');
+    setTab('setor');
+    setUndoProdutoId(produto_id);
+    setUndoQuantidade('');
+    const opts = destinosByProdutoId.get(produto_id) || [];
+    const first = opts[0];
+    setUndoDestinoKey(first ? `${first.tipo}:${first.id}` : '');
+  };
+
+  const cancelarEstorno = () => {
+    setUndoProdutoId(null);
+    setUndoQuantidade('');
+    setUndoDestinoKey('');
+  };
+
+  const confirmarEstorno = async (p: SetorProduto) => {
+    setSuccess('');
+    setError('');
+    if (!user) return;
+    if (!setor) return;
+    const q = Number(undoQuantidade);
+    if (!q || q <= 0 || !Number.isInteger(q)) {
+      setError('Quantidade inválida para estorno');
+      return;
+    }
+    if (q > (p.quantidade_disponivel || 0)) {
+      setError('Quantidade maior que o disponível no setor');
+      return;
+    }
+    if (!undoDestinoKey) {
+      setError('Selecione o destino do estorno');
+      return;
+    }
+    const [destino_tipo, destino_id] = undoDestinoKey.split(':');
+    if (!destino_tipo || !destino_id) {
+      setError('Destino inválido');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await fetch(apiUrl('/api/movimentacoes/estorno_distribuicao'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-User-Id': user.id },
+        body: JSON.stringify({
+          produto_id: p.produto_id,
+          quantidade: q,
+          origem_tipo: 'setor',
+          origem_id: setorId,
+          destino_tipo,
+          destino_id,
+          observacoes: `Estorno de envio do setor: ${setor.nome}`,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || 'Erro ao estornar');
+      await fetchAll(user);
+      setSuccess('Estorno realizado com sucesso');
+      cancelarEstorno();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Erro ao estornar');
     } finally {
       setLoading(false);
     }
@@ -421,20 +501,83 @@ export default function SaidaSetorPage() {
             <p className="text-xs text-gray-500 mt-1">Produtos já existentes e suas quantidades.</p>
           </div>
           <div className="max-h-[70vh] overflow-auto divide-y divide-gray-100">
-            {setorProdutos.map(p => (
-              <div key={p.produto_id} className="p-4">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium text-gray-900 truncate">{p.produto_nome}</div>
-                    <div className="text-xs text-gray-500 truncate">{p.produto_codigo}</div>
+            {setorProdutos.map(p => {
+              const open = undoProdutoId === p.produto_id;
+              const destinos = destinosByProdutoId.get(p.produto_id) || [];
+              return (
+                <div key={p.produto_id} className="p-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium text-gray-900 truncate">{p.produto_nome}</div>
+                      <div className="text-xs text-gray-500 truncate">{p.produto_codigo}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm font-semibold text-gray-900">{Math.round(p.quantidade_disponivel || 0)}</div>
+                      <div className="text-xs text-gray-500">disp.</div>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-sm font-semibold text-gray-900">{Math.round(p.quantidade_disponivel || 0)}</div>
-                    <div className="text-xs text-gray-500">disp.</div>
+
+                  <div className="mt-3 flex items-center justify-between gap-3">
+                    <button
+                      type="button"
+                      onClick={() => (open ? cancelarEstorno() : iniciarEstorno(p.produto_id))}
+                      className="text-xs font-medium text-orange-700 hover:underline disabled:opacity-50"
+                      disabled={loading || (p.quantidade_disponivel || 0) <= 0}
+                    >
+                      {open ? 'Cancelar estorno' : 'Desfazer envio'}
+                    </button>
+                    {destinos.length === 0 && (
+                      <div className="text-xs text-gray-500">Sem destinos disponíveis na central.</div>
+                    )}
                   </div>
+
+                  {open && (
+                    <div className="mt-3 grid grid-cols-1 gap-2 rounded-lg border border-gray-200 p-3">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1">Destino</label>
+                          <select
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none bg-white"
+                            value={undoDestinoKey}
+                            onChange={e => setUndoDestinoKey(e.target.value)}
+                          >
+                            {(destinos || []).map(d => (
+                              <option key={`${d.tipo}:${d.id}`} value={`${d.tipo}:${d.id}`}>
+                                {d.nome} ({d.tipo})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1">Quantidade</label>
+                          <input
+                            type="number"
+                            min="1"
+                            step="1"
+                            max={p.quantidade_disponivel || 0}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
+                            value={undoQuantidade}
+                            onChange={e => setUndoQuantidade(e.target.value)}
+                          />
+                          <p className="text-xs text-gray-500 mt-1">No setor: {Math.round(p.quantidade_disponivel || 0)}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => confirmarEstorno(p)}
+                          disabled={loading || destinos.length === 0}
+                          className="px-3 py-2 rounded-lg bg-orange-600 text-white text-sm font-medium hover:bg-orange-700 disabled:opacity-50"
+                        >
+                          Confirmar estorno
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
             {setorProdutos.length === 0 && (
               <div className="p-4 text-sm text-gray-500">Nenhum produto no setor.</div>
             )}

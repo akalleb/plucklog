@@ -337,7 +337,7 @@ export default function SaidaSetorPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className={`${tab !== 'central' ? 'hidden' : ''} lg:block bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden`}>
+        <div className={`${tab !== 'central' ? 'hidden' : ''} lg:block soft-ui-card overflow-hidden`}>
           <div className="p-4 border-b border-gray-100">
             <div className="flex items-center justify-between">
               <div className="font-semibold text-gray-900 flex items-center gap-2">
@@ -412,7 +412,7 @@ export default function SaidaSetorPage() {
           </div>
         </div>
 
-        <div className={`${tab !== 'selecionados' ? 'hidden' : ''} lg:block bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden`}>
+        <div className={`${tab !== 'selecionados' ? 'hidden' : ''} lg:block soft-ui-card overflow-hidden`}>
           <div className="p-4 border-b border-gray-100">
             <div className="font-semibold text-gray-900 flex items-center gap-2">
               <ShoppingCart className="h-5 w-5 text-orange-600" /> Selecionados
@@ -493,7 +493,7 @@ export default function SaidaSetorPage() {
           </div>
         </div>
 
-        <div className={`${tab !== 'setor' ? 'hidden' : ''} lg:block bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden`}>
+        <div className={`${tab !== 'setor' ? 'hidden' : ''} lg:block soft-ui-card overflow-hidden`}>
           <div className="p-4 border-b border-gray-100">
             <div className="font-semibold text-gray-900 flex items-center gap-2">
               <Package className="h-5 w-5 text-orange-600" /> Estoque no Setor
@@ -587,4 +587,3 @@ export default function SaidaSetorPage() {
     </Page>
   );
 }
-

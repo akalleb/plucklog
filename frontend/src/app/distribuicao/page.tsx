@@ -290,7 +290,7 @@ export default function DistribuicaoPage() {
         <p className="text-gray-500 mt-1">Envie produtos do almoxarifado para setores ou outros locais.</p>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="soft-card overflow-hidden">
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           
           {error && (
@@ -314,7 +314,7 @@ export default function DistribuicaoPage() {
                   required
                   type="text"
                   placeholder="Digite o ID ou Código do produto..."
-                  className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 outline-none"
+                  className="soft-input w-full pl-10 pr-4 py-2 outline-none"
                   value={produtoQuery}
                   onFocus={() => setShowProdutoDropdown(true)}
                   onBlur={() => setTimeout(() => setShowProdutoDropdown(false), 150)}
@@ -330,7 +330,7 @@ export default function DistribuicaoPage() {
                   }}
                 />
                 {showProdutoDropdown && (produtoResults.length > 0 || searching) && (
-                  <div className="absolute z-20 mt-2 w-full bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
+                  <div className="absolute z-20 mt-2 w-full soft-card overflow-hidden">
                     {searching && (
                       <div className="px-3 py-2 text-sm text-gray-500">Buscando...</div>
                     )}
@@ -378,7 +378,7 @@ export default function DistribuicaoPage() {
               <div className="col-span-2">
                 <button
                   type="button"
-                  className="w-full flex items-center justify-between p-3 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 transition-colors"
+                  className="soft-btn w-full flex items-center justify-between p-3 text-left"
                   onClick={() => setShowEvidencias(v => !v)}
                 >
                   <div className="text-left">
@@ -393,7 +393,7 @@ export default function DistribuicaoPage() {
                     {evidencias.map((e, idx) => {
                       const badge = getLocalBadge(e.local_tipo);
                       return (
-                        <div key={`${e.local_tipo}-${e.local_id}-${idx}`} className="flex items-center justify-between p-3 rounded-lg border border-gray-200 bg-white">
+                        <div key={`${e.local_tipo}-${e.local_id}-${idx}`} className="soft-card p-3 flex items-center justify-between">
                           <div className="min-w-0">
                             <div className="flex items-center gap-2">
                               <span className={`text-[10px] px-2 py-0.5 rounded-full border ${badge.className}`}>{badge.label}</span>
@@ -479,7 +479,7 @@ export default function DistribuicaoPage() {
                 min="1"
                 step="1"
                 max={origemDisponivel !== null ? origemDisponivel : undefined}
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 outline-none"
+                className="soft-input w-full px-4 py-2 outline-none"
                 value={formData.quantidade}
                 onChange={e => setFormData({...formData, quantidade: e.target.value})}
               />
@@ -510,7 +510,7 @@ export default function DistribuicaoPage() {
                         key={t}
                         type="button"
                         className={`flex-1 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
-                          active ? 'bg-orange-600 text-white border-orange-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                          active ? 'bg-orange-600 text-white border-orange-600' : 'soft-btn text-gray-700'
                         }`}
                         onClick={() => setFormData({ ...formData, destino_tipo: t, destino_id: '' })}
                       >
@@ -523,12 +523,12 @@ export default function DistribuicaoPage() {
                 <input
                   type="text"
                   placeholder="Buscar destino..."
-                  className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 outline-none"
+                  className="soft-input w-full px-4 py-2 outline-none"
                   value={destinoQuery}
                   onChange={e => setDestinoQuery(e.target.value)}
                 />
 
-                <div className="max-h-64 overflow-auto border border-gray-200 rounded-lg divide-y divide-gray-100 bg-white">
+                <div className="max-h-64 overflow-auto soft-card divide-y divide-gray-100">
                   {destinoOptions.length === 0 ? (
                     <div className="px-3 py-3 text-sm text-gray-500">Nenhum destino encontrado.</div>
                   ) : (

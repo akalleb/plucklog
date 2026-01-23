@@ -143,7 +143,7 @@ export default function SetorEstoquePage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 mb-4">
+      <div className="soft-card p-5 mb-4">
         <div className="flex items-center gap-2 font-semibold text-gray-900 mb-3">
           <Package className="h-5 w-5 text-blue-600" /> Estoque do Setor
         </div>
@@ -153,7 +153,7 @@ export default function SetorEstoquePage() {
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder="Buscar produto..."
-            className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="soft-input w-full pl-10 pr-4 py-2 outline-none"
           />
         </div>
       </div>
@@ -161,13 +161,13 @@ export default function SetorEstoquePage() {
       {error && <div className="mb-4 bg-red-50 text-red-700 p-4 rounded-lg text-sm">{error}</div>}
 
       {loading ? (
-        <div className="bg-white rounded-xl border border-gray-200">
+        <div className="soft-card">
           <Loading />
         </div>
       ) : filtrados.length === 0 ? (
-        <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-500">Nenhum item encontrado.</div>
+        <div className="soft-card p-8 text-center text-gray-500">Nenhum item encontrado.</div>
       ) : (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="soft-card overflow-hidden">
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 text-gray-500">
               <tr>
@@ -197,7 +197,7 @@ export default function SetorEstoquePage() {
 
       {showDetails && selected && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onMouseDown={closeDetails} role="presentation">
-          <div className="bg-white rounded-xl p-6 w-full max-w-3xl shadow-xl" onMouseDown={e => e.stopPropagation()} role="presentation">
+          <div className="soft-card-strong p-6 w-full max-w-3xl" onMouseDown={e => e.stopPropagation()} role="presentation">
             <div className="flex items-start justify-between gap-3 mb-4">
               <div className="min-w-0">
                 <div className="text-lg font-bold text-gray-900 truncate">{selected.produto_nome}</div>
@@ -205,7 +205,7 @@ export default function SetorEstoquePage() {
                   Cód: {selected.produto_codigo} · Disponível no setor: {Math.round(Number(selected.quantidade_disponivel || 0))}
                 </div>
               </div>
-              <button type="button" onClick={closeDetails} className="px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">
+              <button type="button" onClick={closeDetails} className="soft-btn px-3 py-2 text-gray-700">
                 Fechar
               </button>
             </div>
@@ -218,7 +218,7 @@ export default function SetorEstoquePage() {
               </div>
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+                <div className="soft-card p-5">
                   <div className="font-semibold text-gray-900 mb-3">Últimas Movimentações</div>
                   {detailsMovs.length === 0 ? (
                     <div className="text-sm text-gray-500 italic">Nenhuma movimentação recente.</div>
@@ -242,7 +242,7 @@ export default function SetorEstoquePage() {
                   )}
                 </div>
 
-                <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+                <div className="soft-card p-5">
                   <div className="font-semibold text-gray-900 mb-3">Lotes (somente leitura)</div>
                   {detailsLotes.length === 0 ? (
                     <div className="text-sm text-gray-500 italic">Nenhum lote registrado.</div>

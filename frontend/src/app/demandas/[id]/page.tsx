@@ -540,7 +540,7 @@ export default function DemandaDetalhePage({ params }: { params: Promise<{ id: s
       )}
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+        <div className="soft-ui-card p-6">
           <div className="font-semibold text-gray-900 mb-4">Resumo</div>
 
           {loading ? (
@@ -710,7 +710,7 @@ export default function DemandaDetalhePage({ params }: { params: Promise<{ id: s
           )}
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+        <div className="soft-ui-card p-6">
           <div className="flex items-start justify-between gap-3 mb-2">
             <div className="font-semibold text-gray-900">Itens</div>
             <div className="text-xs text-gray-500 text-right">

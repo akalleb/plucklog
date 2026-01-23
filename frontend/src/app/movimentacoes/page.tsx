@@ -118,7 +118,7 @@ export default function MovimentacoesPage() {
         </div>
         
         <div className="flex gap-2">
-           <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">
+           <button className="soft-btn flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700">
              <Download className="h-4 w-4" />
              Exportar
            </button>
@@ -126,20 +126,20 @@ export default function MovimentacoesPage() {
       </div>
 
       {/* Filters */}
-      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm mb-6 flex flex-col md:flex-row gap-4">
+      <div className="soft-card p-4 mb-6 flex flex-col md:flex-row gap-4">
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <input 
             type="text"
             placeholder="Buscar por produto..."
-            className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+            className="soft-input w-full pl-10 pr-4 py-2 outline-none"
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
           />
         </div>
         <div className="w-full md:w-48">
           <select 
-            className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+            className="soft-input w-full px-4 py-2 outline-none"
             value={filterTipo}
             onChange={e => setFilterTipo(e.target.value)}
           >
@@ -154,7 +154,7 @@ export default function MovimentacoesPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="soft-card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
             <thead className="bg-gray-50 text-gray-500 font-medium border-b border-gray-200">
@@ -228,14 +228,14 @@ export default function MovimentacoesPage() {
               <button 
                 onClick={() => setPage(p => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-white disabled:opacity-50"
+                className="soft-btn px-3 py-1 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Anterior
               </button>
               <button 
                 onClick={() => setPage(p => p + 1)}
                 disabled={page >= data.pagination.pages}
-                className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-white disabled:opacity-50"
+                className="soft-btn px-3 py-1 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Próxima
               </button>

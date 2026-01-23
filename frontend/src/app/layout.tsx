@@ -25,7 +25,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR">
-      <body className={`${inter.className} bg-gray-50`}>
+      <body className={`${inter.className} soft-app`}>
         <Providers>
           <TopLoadIndicator />
           <div className="flex min-h-screen">

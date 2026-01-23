@@ -422,13 +422,13 @@ export default function AlmoxarifadosPage() {
         </div>
         <button 
           onClick={openNewModal}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          className="soft-btn-primary flex items-center gap-2 px-4 py-2"
         >
           <Plus className="h-4 w-4" /> Novo Item
         </button>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 min-h-[400px]">
+      <div className="soft-card p-6 min-h-[400px]">
         {loading ? (
           <Loading label="Carregando estrutura" size="md" className="min-h-[340px]" />
         ) : centrais.length === 0 ? (
@@ -460,13 +460,13 @@ export default function AlmoxarifadosPage() {
       {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl">
+          <div className="soft-card-strong p-6 w-full max-w-md">
             <h2 className="text-xl font-bold mb-4">{editingId ? 'Editar Item' : 'Novo Item'}</h2>
             <form onSubmit={handleSave} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Local</label>
                 <select 
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                    className="soft-input w-full px-3 py-2 outline-none"
                     value={formData.tipo}
                     onChange={e => setFormData({
                       ...formData,
@@ -491,7 +491,7 @@ export default function AlmoxarifadosPage() {
                   autoFocus
                   required
                   type="text" 
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                  className="soft-input w-full px-3 py-2 outline-none"
                   value={formData.nome}
                   onChange={e => setFormData({...formData, nome: e.target.value})}
                 />
@@ -504,7 +504,7 @@ export default function AlmoxarifadosPage() {
                   </label>
                   <select 
                     required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                    className="soft-input w-full px-3 py-2 outline-none"
                     value={formData.parent_ref}
                     onChange={e => setFormData({...formData, parent_ref: e.target.value})}
                   >
@@ -522,7 +522,7 @@ export default function AlmoxarifadosPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Almoxarifado (Base)</label>
                     <select 
                       required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                      className="soft-input w-full px-3 py-2 outline-none"
                       value={formData.setor_almoxarifado_id}
                       onChange={e => setFormData({ ...formData, setor_almoxarifado_id: e.target.value, setor_sub_almoxarifado_ids: [] })}
                     >
@@ -536,7 +536,7 @@ export default function AlmoxarifadosPage() {
                   {formData.setor_almoxarifado_id && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Sub-Almoxarifados (Múltiplos)</label>
-                      <div className="border border-gray-200 rounded-lg max-h-44 overflow-auto divide-y divide-gray-100">
+                      <div className="soft-card max-h-44 overflow-auto divide-y divide-gray-100">
                         {subAlmoxarifados
                           .filter(s => s.almoxarifado_id === formData.setor_almoxarifado_id)
                           .map(s => {
@@ -569,7 +569,7 @@ export default function AlmoxarifadosPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Endereço</label>
                     <input 
                       type="text" 
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                      className="soft-input w-full px-3 py-2 outline-none"
                       value={formData.endereco}
                       onChange={e => setFormData({...formData, endereco: e.target.value})}
                     />
@@ -580,7 +580,7 @@ export default function AlmoxarifadosPage() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
                     <textarea 
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                      className="soft-input w-full px-3 py-2 outline-none"
                       rows={2}
                       value={formData.descricao}
                       onChange={e => setFormData({...formData, descricao: e.target.value})}
@@ -594,7 +594,7 @@ export default function AlmoxarifadosPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Responsável</label>
                     <input 
                       type="text" 
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                      className="soft-input w-full px-3 py-2 outline-none"
                       value={formData.responsavel}
                       onChange={e => setFormData({...formData, responsavel: e.target.value})}
                     />
@@ -603,7 +603,7 @@ export default function AlmoxarifadosPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
                     <input 
                       type="email" 
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                      className="soft-input w-full px-3 py-2 outline-none"
                       value={formData.email}
                       onChange={e => setFormData({...formData, email: e.target.value})}
                     />
@@ -626,13 +626,13 @@ export default function AlmoxarifadosPage() {
                 <button 
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                  className="soft-btn px-4 py-2 text-gray-700"
                 >
                   Cancelar
                 </button>
                 <button 
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  className="soft-btn-primary px-4 py-2"
                 >
                   Salvar
                 </button>

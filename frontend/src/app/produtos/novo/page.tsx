@@ -119,7 +119,7 @@ export default function NovoProdutoPage() {
         <p className="text-gray-500 mt-1">Cadastre um novo item no catálogo do almoxarifado.</p>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="soft-card overflow-hidden">
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -128,7 +128,7 @@ export default function NovoProdutoPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Central</label>
               <select
                 required
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                className="soft-input w-full px-4 py-2 outline-none"
                 value={formData.central_id}
                 onChange={e => setFormData({ ...formData, central_id: e.target.value })}
                 disabled={user?.role === 'admin_central'}
@@ -147,7 +147,7 @@ export default function NovoProdutoPage() {
                 autoFocus
                 required
                 type="text" 
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none"
+                className="soft-input w-full px-4 py-2 outline-none"
                 placeholder="Ex: Luva de Procedimento M"
                 value={formData.nome}
                 onChange={e => setFormData({...formData, nome: e.target.value})}
@@ -161,7 +161,7 @@ export default function NovoProdutoPage() {
                 <input 
                   required
                   type="text" 
-                  className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none font-mono"
+                  className="soft-input w-full px-4 py-2 outline-none font-mono"
                   placeholder="Ex: PROD-001"
                   value={formData.codigo}
                   onChange={e => setFormData({...formData, codigo: e.target.value})}
@@ -169,7 +169,7 @@ export default function NovoProdutoPage() {
                 <button 
                   type="button"
                   onClick={gerarCodigo}
-                  className="px-3 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 border border-gray-200"
+                  className="soft-btn px-3 py-2 text-gray-700"
                   title="Gerar Código Automático"
                 >
                   <Wand2 className="h-4 w-4" />
@@ -181,7 +181,7 @@ export default function NovoProdutoPage() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
               <select 
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                className="soft-input w-full px-4 py-2 outline-none"
                 value={formData.categoria_id}
                 onChange={e => setFormData({...formData, categoria_id: e.target.value})}
               >
@@ -196,7 +196,7 @@ export default function NovoProdutoPage() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Unidade</label>
               <select 
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                className="soft-input w-full px-4 py-2 outline-none"
                 value={formData.unidade}
                 onChange={e => setFormData({...formData, unidade: e.target.value})}
               >
@@ -215,7 +215,7 @@ export default function NovoProdutoPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Descrição Detalhada</label>
               <textarea 
                 rows={3}
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none"
+                className="soft-input w-full px-4 py-2 outline-none"
                 placeholder="Detalhes técnicos, marca, dimensões..."
                 value={formData.descricao}
                 onChange={e => setFormData({...formData, descricao: e.target.value})}
@@ -227,7 +227,7 @@ export default function NovoProdutoPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Observações Internas</label>
               <input 
                 type="text" 
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none"
+                className="soft-input w-full px-4 py-2 outline-none"
                 placeholder="Avisos sobre armazenamento, fornecedor preferencial..."
                 value={formData.observacao}
                 onChange={e => setFormData({...formData, observacao: e.target.value})}
@@ -239,7 +239,7 @@ export default function NovoProdutoPage() {
             <button 
               type="submit" 
               disabled={loading}
-              className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              className="soft-btn-primary flex items-center gap-2 px-6 py-2 disabled:opacity-50"
             >
               {loading ? (
                 <><Loader2 className="h-4 w-4 animate-spin" /> Salvando...</>

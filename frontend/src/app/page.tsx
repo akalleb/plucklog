@@ -210,7 +210,7 @@ export default function Dashboard() {
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div
-            className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow cursor-pointer select-none"
+            className="soft-card p-6 cursor-pointer select-none"
             role="button"
             tabIndex={0}
             onClick={() => {
@@ -233,14 +233,14 @@ export default function Dashboard() {
             </div>
             <div className="text-2xl font-bold">{stats.total_produtos}</div>
           </div>
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+          <div className="soft-card p-6">
              <div className="flex items-center justify-between pb-2">
               <h3 className="text-sm font-medium text-gray-500">Locais Ativos</h3>
               <MapPin className="h-4 w-4 text-gray-400" />
             </div>
             <div className="text-2xl font-bold">{stats.locais_ativos}</div>
           </div>
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+          <div className="soft-card p-6">
              <div className="flex items-center justify-between pb-2">
               <h3 className="text-sm font-medium text-gray-500">Estoque Baixo</h3>
               <AlertTriangle className="h-4 w-4 text-orange-500" />
@@ -256,7 +256,7 @@ export default function Dashboard() {
             <input 
               type="text"
               placeholder="Buscar produto por nome ou código..."
-              className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+              className="soft-input w-full pl-10 pr-4 py-2 outline-none"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -264,7 +264,7 @@ export default function Dashboard() {
         </div>
 
         {/* Table */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="soft-card overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left">
               <thead className="bg-gray-50 text-gray-500 font-medium border-b border-gray-200">
@@ -381,14 +381,14 @@ export default function Dashboard() {
                 <button 
                   onClick={() => setPage(p => Math.max(1, p - 1))}
                   disabled={page === 1}
-                  className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="soft-btn px-3 py-1 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Anterior
                 </button>
                 <button 
                   onClick={() => setPage(p => p + 1)}
                   disabled={page >= data.pagination.pages}
-                  className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="soft-btn px-3 py-1 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Próxima
                 </button>
@@ -399,12 +399,12 @@ export default function Dashboard() {
 
         {showProdutosModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl w-full max-w-2xl shadow-xl overflow-hidden">
+            <div className="soft-card-strong w-full max-w-2xl overflow-hidden">
               <div className="p-4 border-b border-gray-200 flex items-center justify-between gap-3">
                 <div className="font-semibold text-gray-900">Produtos catalogados</div>
                 <button
                   type="button"
-                  className="px-3 py-1.5 rounded-lg border border-gray-300 text-sm text-gray-600 hover:bg-gray-50"
+                  className="soft-btn px-3 py-1.5 text-sm text-gray-700"
                   onClick={() => setShowProdutosModal(false)}
                 >
                   Fechar
@@ -417,7 +417,7 @@ export default function Dashboard() {
                   <input
                     type="text"
                     placeholder="Filtrar por nome ou código..."
-                    className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                    className="soft-input w-full pl-10 pr-4 py-2 outline-none"
                     value={produtosQuery}
                     onChange={(e) => {
                       setProdutosQuery(e.target.value);
@@ -455,7 +455,7 @@ export default function Dashboard() {
               <div className="p-4 border-t border-gray-200 flex items-center justify-between">
                 <button
                   type="button"
-                  className="px-3 py-2 rounded-lg border border-gray-300 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                  className="soft-btn px-3 py-2 text-sm text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   onClick={() => setProdutosPage(p => Math.max(1, p - 1))}
                   disabled={produtosPage <= 1 || produtosLoading}
                 >
@@ -464,7 +464,7 @@ export default function Dashboard() {
                 <div className="text-sm text-gray-500">Página {produtosPage}</div>
                 <button
                   type="button"
-                  className="px-3 py-2 rounded-lg border border-gray-300 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                  className="soft-btn px-3 py-2 text-sm text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   onClick={() => setProdutosPage(p => p + 1)}
                   disabled={produtosLoading || produtos.length < 50}
                 >

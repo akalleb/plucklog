@@ -333,26 +333,26 @@ export default function DemandasPage() {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+        <div className="soft-ui-card p-5">
           <div className="text-xs text-gray-500">Pendentes</div>
           <div className="text-2xl font-bold text-gray-900">{resumo.counts.pendente}</div>
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+        <div className="soft-ui-card p-5">
           <div className="text-xs text-gray-500">Parciais</div>
           <div className="text-2xl font-bold text-gray-900">{resumo.counts.parcial}</div>
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+        <div className="soft-ui-card p-5">
           <div className="text-xs text-gray-500">Atendidas</div>
           <div className="text-2xl font-bold text-gray-900">{resumo.counts.atendido}</div>
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+        <div className="soft-ui-card p-5">
           <div className="text-xs text-gray-500">Restante total</div>
           <div className="text-2xl font-bold text-gray-900">{Math.round(resumo.restanteTotal)}</div>
           <div className="text-xs text-gray-500 mt-1">Atendido {Math.round(resumo.enviadoTotal)}/{Math.round(resumo.solicitadoTotal)}</div>
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+      <div className="soft-ui-card p-5">
         <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
           <div className="flex flex-col sm:flex-row sm:items-center gap-3">
             <div className="flex items-center gap-2 text-sm text-gray-700">

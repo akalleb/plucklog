@@ -336,7 +336,7 @@ export default function ProdutoDetalhesPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Locais */}
-        <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+        <div className="soft-ui-card p-6">
           <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
             <MapPin className="h-5 w-5 text-gray-500" /> Distribuição por Local
           </h2>
@@ -364,7 +364,7 @@ export default function ProdutoDetalhesPage() {
         </div>
 
         {/* Histórico Recente */}
-        <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+        <div className="soft-ui-card p-6">
           <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
             <History className="h-5 w-5 text-gray-500" /> Últimas Movimentações
           </h2>
@@ -400,7 +400,7 @@ export default function ProdutoDetalhesPage() {
           )}
         </div>
         {/* Lotes e Validades */}
-        <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm lg:col-span-2">
+        <div className="soft-ui-card p-6 lg:col-span-2">
           <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
             <Package className="h-5 w-5 text-gray-500" /> Lotes e Validades
           </h2>

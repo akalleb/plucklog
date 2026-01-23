@@ -139,7 +139,7 @@ export default function EditarProdutoPage() {
         </button>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="soft-ui-card overflow-hidden">
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

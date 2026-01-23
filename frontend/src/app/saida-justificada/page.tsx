@@ -258,7 +258,7 @@ export default function SaidaJustificadaPage() {
         </div>
       )}
 
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+      <div className="soft-card p-6">
         <form onSubmit={submit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Produto</label>
@@ -275,10 +275,10 @@ export default function SaidaJustificadaPage() {
                 onFocus={() => setShowProdutoDropdown(true)}
                 onBlur={() => setTimeout(() => setShowProdutoDropdown(false), 150)}
                 placeholder="Buscar por nome ou código..."
-                className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
+                className="soft-input w-full pl-10 pr-4 py-2 outline-none"
               />
               {showProdutoDropdown && (produtoResults.length > 0 || searching) && (
-                <div className="absolute z-10 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg max-h-64 overflow-auto">
+                <div className="absolute z-10 mt-1 w-full soft-card max-h-64 overflow-auto">
                   {searching ? (
                     <div className="px-3 py-2 text-sm text-gray-500">Buscando...</div>
                   ) : (
@@ -313,7 +313,7 @@ export default function SaidaJustificadaPage() {
                 setOrigemTipo(t as 'almoxarifado' | 'sub_almoxarifado');
                 setOrigemId(id || '');
               }}
-              className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 outline-none bg-white"
+              className="soft-input w-full px-3 py-2 outline-none"
             >
               <option value="">Selecione</option>
               {origensDisponiveis.map(o => (
@@ -333,7 +333,7 @@ export default function SaidaJustificadaPage() {
               type="datetime-local"
               value={dataMov}
               onChange={e => setDataMov(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 outline-none"
+              className="soft-input w-full px-3 py-2 outline-none"
             />
           </div>
 
@@ -345,7 +345,7 @@ export default function SaidaJustificadaPage() {
               step="1"
               value={quantidade}
               onChange={e => setQuantidade(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 outline-none"
+              className="soft-input w-full px-3 py-2 outline-none"
               placeholder="0"
             />
             {origemSelecionada && (
@@ -360,7 +360,7 @@ export default function SaidaJustificadaPage() {
             <textarea
               value={justificativa}
               onChange={e => setJustificativa(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 outline-none min-h-24"
+              className="soft-input w-full px-3 py-2 outline-none min-h-24"
               placeholder="Obrigatório"
             />
           </div>
@@ -369,7 +369,7 @@ export default function SaidaJustificadaPage() {
             <button
               type="submit"
               disabled={sending}
-              className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50"
+              className="soft-btn px-4 py-2 bg-orange-600 text-white border-orange-500/30 hover:bg-orange-700 disabled:opacity-50"
             >
               {sending ? 'Registrando...' : 'Registrar Saída'}
             </button>

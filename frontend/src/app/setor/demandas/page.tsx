@@ -189,7 +189,7 @@ export default function SetorDemandasPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+        <div className="soft-card p-6">
           <div className="flex items-center gap-2 font-semibold text-gray-900 mb-4">
             <ShoppingCart className="h-5 w-5 text-green-600" /> Nova Demanda
           </div>
@@ -214,7 +214,7 @@ export default function SetorDemandasPage() {
                   const v = e.target.value;
                   if (v === 'almoxarifado' || v === 'sub_almoxarifado' || v === 'central') setDestinoTipo(v);
                 }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none bg-white"
+                className="soft-input w-full px-3 py-2 outline-none"
               >
                 <option value="almoxarifado">Almoxarifado</option>
                 <option value="sub_almoxarifado">Sub-Almoxarifado</option>
@@ -226,7 +226,7 @@ export default function SetorDemandasPage() {
               <input
                 value={observacoes}
                 onChange={e => setObservacoes(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none"
+                className="soft-input w-full px-3 py-2 outline-none"
                 placeholder="Opcional"
               />
             </div>
@@ -246,10 +246,10 @@ export default function SetorDemandasPage() {
                   setProdutoSelected(null);
                 }}
                 placeholder="Buscar por nome/código..."
-                className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 outline-none"
+                className="soft-input w-full pl-10 pr-4 py-2 outline-none"
               />
               {showProdutoDropdown && produtoResults.length > 0 && (
-                <div className="absolute z-20 mt-2 w-full bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
+                <div className="absolute z-20 mt-2 w-full soft-card overflow-hidden">
                   {produtoResults.slice(0, 10).map(p => (
                     <button
                       type="button"
@@ -289,7 +289,7 @@ export default function SetorDemandasPage() {
                 step="1"
                 value={quantidade}
                 onChange={e => setQuantidade(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none"
+                className="soft-input w-full px-3 py-2 outline-none"
               />
             </div>
             <div className="md:col-span-2">
@@ -297,29 +297,29 @@ export default function SetorDemandasPage() {
               <input
                 value={itemObs}
                 onChange={e => setItemObs(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none"
+                className="soft-input w-full px-3 py-2 outline-none"
                 placeholder="Opcional"
               />
             </div>
           </div>
 
           <div className="mt-4 flex justify-between items-center gap-3">
-            <button type="button" onClick={addItem} className="px-4 py-2 rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-50">
+            <button type="button" onClick={addItem} className="soft-btn px-4 py-2 text-gray-700">
               Adicionar item
             </button>
             <button
               type="button"
               onClick={enviar}
               disabled={sending || cart.length === 0}
-              className="px-4 py-2 rounded-lg bg-green-600 text-white font-medium hover:bg-green-700 disabled:opacity-50"
+              className="soft-btn px-4 py-2 bg-green-600 text-white border-green-500/30 hover:bg-green-700 disabled:opacity-50"
             >
               {sending ? 'Enviando...' : `Enviar (${cart.length})`}
             </button>
           </div>
 
           {cart.length > 0 && (
-            <div className="mt-5 rounded-xl border border-gray-200 overflow-hidden">
-              <div className="bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700">Itens</div>
+            <div className="mt-5 soft-card overflow-hidden">
+              <div className="bg-white/40 px-4 py-2 text-sm font-medium text-gray-700 border-b border-gray-100/70">Itens</div>
               <div className="divide-y divide-gray-100">
                 {cart.map(i => (
                   <div key={i.produto_id} className="p-4 flex items-start justify-between gap-3">
@@ -340,7 +340,7 @@ export default function SetorDemandasPage() {
           )}
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+        <div className="soft-card p-6">
           <div className="font-semibold text-gray-900 mb-4">Minhas Demandas</div>
           {loading ? (
             <Loading size="sm" className="items-start text-left" />
@@ -349,7 +349,7 @@ export default function SetorDemandasPage() {
           ) : (
             <div className="space-y-3">
               {demandasOrdenadas.slice(0, 20).map(d => (
-                <div key={d.id} className="rounded-xl border border-gray-200 p-4">
+                <div key={d.id} className="soft-card p-4">
                   <div className="flex items-center justify-between">
                     <div className="font-semibold text-gray-900">#{d.id.slice(0, 8)}</div>
                     <div className="text-xs text-gray-600 capitalize">{d.status}</div>
@@ -375,4 +375,3 @@ export default function SetorDemandasPage() {
     </div>
   );
 }
-

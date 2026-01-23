@@ -292,20 +292,20 @@ export default function UsuariosPage() {
         </div>
         <button 
           onClick={openNewModal}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          className="soft-btn-primary flex items-center gap-2 px-4 py-2"
         >
           <Plus className="h-4 w-4" /> Novo Usuário
         </button>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className="p-4 border-b border-gray-100 bg-gray-50 flex gap-4">
+      <div className="soft-card overflow-hidden">
+        <div className="p-4 border-b border-gray-100/70 bg-white/40 flex gap-4">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input 
               type="text" 
               placeholder="Buscar usuários..."
-              className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="soft-input w-full pl-10 pr-4 py-2 outline-none"
             />
           </div>
         </div>
@@ -380,7 +380,7 @@ export default function UsuariosPage() {
       {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl">
+          <div className="soft-card-strong p-6 w-full max-w-md">
             <h2 className="text-xl font-bold mb-4">{editingId ? 'Editar Usuário' : 'Novo Usuário'}</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
@@ -389,7 +389,7 @@ export default function UsuariosPage() {
                   autoFocus
                   required
                   type="text" 
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                  className="soft-input w-full px-3 py-2 outline-none"
                   value={formData.nome}
                   onChange={e => setFormData({...formData, nome: e.target.value})}
                 />
@@ -400,7 +400,7 @@ export default function UsuariosPage() {
                 <input 
                   required
                   type="email" 
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                  className="soft-input w-full px-3 py-2 outline-none"
                   value={formData.email}
                   onChange={e => setFormData({...formData, email: e.target.value})}
                 />
@@ -412,7 +412,7 @@ export default function UsuariosPage() {
                 </label>
                 <input 
                   type="password" 
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                  className="soft-input w-full px-3 py-2 outline-none"
                   value={formData.password}
                   onChange={e => setFormData({...formData, password: e.target.value})}
                 />
@@ -423,7 +423,7 @@ export default function UsuariosPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Cargo</label>
                   <input 
                     type="text" 
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                    className="soft-input w-full px-3 py-2 outline-none"
                     value={formData.cargo}
                     onChange={e => setFormData({...formData, cargo: e.target.value})}
                   />
@@ -431,7 +431,7 @@ export default function UsuariosPage() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Perfil (Role)</label>
                   <select 
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                    className="soft-input w-full px-3 py-2 outline-none"
                     value={formData.role}
                     onChange={e => {
                       const nextRole = e.target.value;
@@ -463,7 +463,7 @@ export default function UsuariosPage() {
                 </label>
                 <select
                   required={formData.role !== 'super_admin'}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                  className="soft-input w-full px-3 py-2 outline-none"
                   value={formData.central_id}
                   onChange={e => {
                     const nextCentralId = (e.target.value || '').trim();
@@ -494,7 +494,7 @@ export default function UsuariosPage() {
                     </label>
                     <select 
                       required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                      className="soft-input w-full px-3 py-2 outline-none"
                       value={formData.scope_id}
                       onChange={e => setFormData({...formData, scope_id: e.target.value})}
                     >
@@ -512,7 +512,7 @@ export default function UsuariosPage() {
               {formData.role !== 'super_admin' && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Categorias Responsáveis</label>
-                  <div className="border border-gray-200 rounded-lg max-h-44 overflow-auto divide-y divide-gray-100">
+                  <div className="soft-card max-h-44 overflow-auto divide-y divide-gray-100">
                     {categorias.map(cat => {
                       const checked = formData.categoria_ids.includes(cat.id);
                       return (
@@ -540,13 +540,13 @@ export default function UsuariosPage() {
                 <button 
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                  className="soft-btn px-4 py-2 text-gray-700"
                 >
                   Cancelar
                 </button>
                 <button 
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  className="soft-btn-primary px-4 py-2"
                 >
                   Salvar
                 </button>

@@ -142,7 +142,7 @@ export default function SetorHomePage() {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+        <div className="soft-card p-5">
           <div className="flex items-center justify-between gap-3 mb-3">
             <div className="font-semibold text-gray-900">Resumo do Estoque</div>
             <Link href="/setor/estoque" className="text-sm text-blue-600 hover:underline">
@@ -169,7 +169,7 @@ export default function SetorHomePage() {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+        <div className="soft-card p-5">
           <div className="flex items-center justify-between gap-3 mb-3">
             <div className="font-semibold text-gray-900">Resumo de Demandas</div>
             <Link href="/setor/demandas" className="text-sm text-green-700 hover:underline">
@@ -198,7 +198,7 @@ export default function SetorHomePage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+        <div className="soft-card p-5">
           <div className="flex items-center justify-between gap-3 mb-3">
             <div className="font-semibold text-gray-900">Produtos Recentemente Enviados</div>
             <Link href="/setor/estoque" className="text-sm text-blue-600 hover:underline">
@@ -228,7 +228,7 @@ export default function SetorHomePage() {
           )}
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+        <div className="soft-card p-5">
           <div className="flex items-center justify-between gap-3 mb-3">
             <div className="font-semibold text-gray-900">Estoque Baixo (≤ 5)</div>
             <Link href="/setor/estoque" className="text-sm text-blue-600 hover:underline">
@@ -260,7 +260,7 @@ export default function SetorHomePage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Link
           href="/setor/estoque"
-          className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 hover:bg-gray-50 transition-colors"
+          className="soft-card p-5 hover:bg-white/40 transition-colors"
         >
           <div className="flex items-center gap-3">
             <Package className="h-5 w-5 text-blue-600" />
@@ -273,7 +273,7 @@ export default function SetorHomePage() {
 
         <Link
           href="/setor/consumo"
-          className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 hover:bg-gray-50 transition-colors"
+          className="soft-card p-5 hover:bg-white/40 transition-colors"
         >
           <div className="flex items-center gap-3">
             <ArrowLeftRight className="h-5 w-5 text-orange-600" />
@@ -286,7 +286,7 @@ export default function SetorHomePage() {
 
         <Link
           href="/setor/demandas"
-          className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 hover:bg-gray-50 transition-colors"
+          className="soft-card p-5 hover:bg-white/40 transition-colors"
         >
           <div className="flex items-center gap-3">
             <ShoppingCart className="h-5 w-5 text-green-600" />

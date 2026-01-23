@@ -147,7 +147,7 @@ export default function RelatoriosPage() {
   if (!user) {
     return (
       <Page>
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+        <div className="soft-card p-6">
           <div className="text-gray-900 font-semibold mb-1">Você precisa estar logado para ver relatórios.</div>
           <Link href="/login" className="text-blue-700 hover:text-blue-800 underline">
             Ir para login
@@ -159,7 +159,7 @@ export default function RelatoriosPage() {
   if (!canAccess(['super_admin', 'admin_central'])) {
     return (
       <Page>
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+        <div className="soft-card p-6">
           <div className="text-gray-900 font-semibold mb-1">Acesso negado.</div>
           <Link href="/" className="text-blue-700 hover:text-blue-800 underline">
             Voltar ao início
@@ -207,12 +207,12 @@ export default function RelatoriosPage() {
               value={query}
               onChange={e => setQuery(e.target.value)}
               placeholder="Filtrar setor..."
-              className="w-full sm:w-72 pl-9 pr-3 py-2 border border-gray-200 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="soft-input w-full sm:w-72 pl-9 pr-3 py-2 text-sm"
             />
           </div>
           <button
             onClick={() => setOrdem(o => (o === 'desc' ? 'asc' : 'desc'))}
-            className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm hover:bg-gray-50"
+            className="soft-btn inline-flex items-center justify-center gap-2 px-3 py-2 text-sm"
             disabled={loading}
             title="Alternar ordem"
           >
@@ -221,7 +221,7 @@ export default function RelatoriosPage() {
           </button>
           <button
             onClick={() => (user?.id ? fetchData(user.id) : Promise.resolve())}
-            className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm hover:bg-gray-50"
+            className="soft-btn inline-flex items-center justify-center gap-2 px-3 py-2 text-sm"
             disabled={loading}
           >
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
@@ -233,14 +233,14 @@ export default function RelatoriosPage() {
       {loading ? (
         <Loading label="Carregando relatórios" />
       ) : error ? (
-        <div className="bg-white rounded-xl border border-red-200 shadow-sm p-6">
+        <div className="soft-card p-6 border border-red-200">
           <div className="text-red-700 font-semibold">Erro ao carregar</div>
           <div className="text-sm text-red-600 mt-1">{error}</div>
         </div>
       ) : (
         <div className="flex flex-col gap-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+            <div className="soft-card p-4">
               <div className="text-xs text-gray-500 flex items-center gap-2">
                 <CalendarDays className="h-4 w-4 text-blue-600" />
                 Consumo na Semana
@@ -248,7 +248,7 @@ export default function RelatoriosPage() {
               <div className="text-2xl font-bold text-gray-900 mt-2 tabular-nums">{formatQtyCompact(resumo.sumSemana)}</div>
               <div className="text-xs text-gray-400 mt-1">{resumo.ativosSemana} setores com consumo</div>
             </div>
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+            <div className="soft-card p-4">
               <div className="text-xs text-gray-500 flex items-center gap-2">
                 <CalendarDays className="h-4 w-4 text-blue-600" />
                 Consumo no Mês
@@ -256,7 +256,7 @@ export default function RelatoriosPage() {
               <div className="text-2xl font-bold text-gray-900 mt-2 tabular-nums">{formatQtyCompact(resumo.sumMes)}</div>
               <div className="text-xs text-gray-400 mt-1">{resumo.ativosMes} setores com consumo</div>
             </div>
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+            <div className="soft-card p-4">
               <div className="text-xs text-gray-500 flex items-center gap-2">
                 <TrendingUp className="h-4 w-4 text-blue-600" />
                 Top da Semana
@@ -266,7 +266,7 @@ export default function RelatoriosPage() {
                 {resumo.topSemana ? formatQty(resumo.topSemana.consumo_semana) : '0'}
               </div>
             </div>
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+            <div className="soft-card p-4">
               <div className="text-xs text-gray-500 flex items-center gap-2">
                 <TrendingUp className="h-4 w-4 text-blue-600" />
                 Top do Mês
@@ -277,7 +277,7 @@ export default function RelatoriosPage() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+            <div className="soft-card p-4">
               <div className="text-sm font-semibold text-gray-900 mb-3">Top consumo na semana</div>
               <div className="h-72">
                 {chartSemana.length ? (
@@ -304,7 +304,7 @@ export default function RelatoriosPage() {
               </div>
             </div>
 
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+            <div className="soft-card p-4">
               <div className="text-sm font-semibold text-gray-900 mb-3">Top consumo no mês</div>
               <div className="h-72">
                 {chartMes.length ? (
@@ -332,7 +332,7 @@ export default function RelatoriosPage() {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="soft-card overflow-hidden">
             <div className="px-4 py-3 border-b border-gray-100 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div className="text-sm font-semibold text-gray-900">Setores</div>
               <label className="inline-flex items-center gap-2 text-sm text-gray-700 select-none">

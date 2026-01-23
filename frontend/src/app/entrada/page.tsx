@@ -188,7 +188,7 @@ export default function NovaEntradaPage() {
         <p className="text-gray-500 mt-1">Registre o recebimento de produtos de fornecedores.</p>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="soft-card overflow-hidden">
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           
           {error && (
@@ -213,7 +213,7 @@ export default function NovaEntradaPage() {
                   type="text" 
                   required
                   placeholder="Digite o ID ou Código do produto..."
-                  className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 outline-none"
+                  className="soft-input w-full pl-10 pr-4 py-2 outline-none"
                   value={produtoQuery}
                   onFocus={() => setShowProdutoDropdown(true)}
                   onBlur={() => setTimeout(() => setShowProdutoDropdown(false), 150)}
@@ -223,7 +223,7 @@ export default function NovaEntradaPage() {
                   }}
                 />
                 {showProdutoDropdown && (produtoResults.length > 0 || searching) && (
-                  <div className="absolute z-20 mt-2 w-full bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
+                  <div className="absolute z-20 mt-2 w-full soft-card overflow-hidden">
                     {searching && (
                       <div className="px-3 py-2 text-sm text-gray-500">Buscando...</div>
                     )}
@@ -271,7 +271,7 @@ export default function NovaEntradaPage() {
                 required
                 min="1"
                 step="1"
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 outline-none"
+                className="soft-input w-full px-4 py-2 outline-none"
                 value={formData.quantidade}
                 onChange={e => setFormData({...formData, quantidade: e.target.value})}
               />
@@ -283,7 +283,7 @@ export default function NovaEntradaPage() {
                 type="number"
                 min="0"
                 step="0.01"
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 outline-none"
+                className="soft-input w-full px-4 py-2 outline-none"
                 value={formData.preco_unitario}
                 onChange={e => setFormData({ ...formData, preco_unitario: e.target.value })}
               />
@@ -294,7 +294,7 @@ export default function NovaEntradaPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Destino</label>
               <div className="grid grid-cols-1 gap-2">
                 <select
-                  className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 outline-none bg-white"
+                  className="soft-input w-full px-4 py-2 outline-none"
                   value={formData.central_id}
                   onChange={e => setFormData({ ...formData, central_id: e.target.value, almoxarifado_id: '', sub_almoxarifado_id: '' })}
                   required
@@ -306,7 +306,7 @@ export default function NovaEntradaPage() {
                 </select>
 
                 <select
-                  className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 outline-none bg-white"
+                  className="soft-input w-full px-4 py-2 outline-none"
                   value={formData.almoxarifado_id}
                   onChange={e => setFormData({ ...formData, almoxarifado_id: e.target.value, sub_almoxarifado_id: '' })}
                   required
@@ -330,7 +330,7 @@ export default function NovaEntradaPage() {
 
                 {formData.destino_is_sub && (
                   <select
-                    className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 outline-none bg-white"
+                    className="soft-input w-full px-4 py-2 outline-none"
                     value={formData.sub_almoxarifado_id}
                     onChange={e => setFormData({ ...formData, sub_almoxarifado_id: e.target.value })}
                     required
@@ -350,7 +350,7 @@ export default function NovaEntradaPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Nota Fiscal</label>
               <input 
                 type="text" 
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 outline-none"
+                className="soft-input w-full px-4 py-2 outline-none"
                 value={formData.nota_fiscal}
                 onChange={e => setFormData({...formData, nota_fiscal: e.target.value})}
               />
@@ -362,7 +362,7 @@ export default function NovaEntradaPage() {
               <input 
                 type="text" 
                 required
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 outline-none"
+                className="soft-input w-full px-4 py-2 outline-none"
                 value={formData.lote}
                 onChange={e => setFormData({...formData, lote: e.target.value})}
               />
@@ -374,7 +374,7 @@ export default function NovaEntradaPage() {
               <input 
                 type="date" 
                 required
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 outline-none"
+                className="soft-input w-full px-4 py-2 outline-none"
                 value={formData.data_validade}
                 onChange={e => setFormData({...formData, data_validade: e.target.value})}
               />
@@ -385,7 +385,7 @@ export default function NovaEntradaPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Fornecedor</label>
               <input 
                 type="text" 
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 outline-none"
+                className="soft-input w-full px-4 py-2 outline-none"
                 value={formData.fornecedor}
                 onChange={e => setFormData({...formData, fornecedor: e.target.value})}
               />
@@ -396,7 +396,7 @@ export default function NovaEntradaPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Observações</label>
               <textarea 
                 rows={3}
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 outline-none"
+                className="soft-input w-full px-4 py-2 outline-none"
                 value={formData.observacoes}
                 onChange={e => setFormData({...formData, observacoes: e.target.value})}
               />
@@ -407,7 +407,7 @@ export default function NovaEntradaPage() {
             <button 
               type="submit" 
               disabled={loading}
-              className="flex items-center gap-2 px-6 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
+              className="soft-btn flex items-center gap-2 px-6 py-2 bg-green-600 text-white border-green-500/30 hover:bg-green-700 disabled:opacity-50"
             >
               {loading ? 'Salvando...' : <><Save className="h-4 w-4" /> Registrar Entrada</>}
             </button>

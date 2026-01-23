@@ -46,10 +46,10 @@ export default function Sidebar() {
   return (
     <>
       {/* Mobile Header Bar - Visible only on mobile */}
-      <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-white border-b border-gray-200 z-30 flex items-center px-4 justify-between">
+      <div className="md:hidden fixed top-0 left-0 right-0 h-16 soft-surface-flat z-30 flex items-center px-4 justify-between">
         <button 
           onClick={() => setIsOpen(true)}
-          className="p-2 -ml-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+          className="soft-btn p-2 -ml-2 text-gray-700"
           aria-label="Abrir menu"
         >
           <Menu className="h-6 w-6" />
@@ -74,16 +74,16 @@ export default function Sidebar() {
       )}
 
       {/* Sidebar Aside */}
-      <aside className={`fixed left-0 top-0 h-full w-64 bg-white border-r border-gray-200 z-40 transition-transform duration-300 ease-in-out 
+      <aside className={`fixed left-0 top-0 h-full w-64 soft-card-flat z-40 transition-transform duration-300 ease-in-out 
         ${isOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
         
         <div className="flex flex-col h-full">
           {/* Logo & Close Button */}
-          <div className="h-16 flex items-center justify-between px-6 border-b border-gray-100">
+          <div className="h-16 flex items-center justify-between px-6 border-b border-gray-100/70">
             <Image src="/assets/logo_pluck.svg" alt="Pluck" width={240} height={64} className="h-10 w-auto" priority />
             <button
               onClick={() => setIsOpen(false)}
-              className="md:hidden p-2 -mr-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+              className="md:hidden soft-btn p-2 -mr-2 text-gray-700"
               aria-label="Fechar menu"
             >
               <X className="h-5 w-5" />
@@ -98,7 +98,7 @@ export default function Sidebar() {
                   href="/setor"
                   onClick={() => setIsOpen(false)}
                   className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group ${
-                    pathname?.startsWith('/setor') ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-blue-50 hover:text-blue-600'
+                    pathname?.startsWith('/setor') ? 'bg-blue-500/10 text-blue-700' : 'text-gray-600 hover:bg-blue-500/10 hover:text-blue-700'
                   }`}
                 >
                   <Home className="h-5 w-5" />
@@ -109,7 +109,7 @@ export default function Sidebar() {
                   href="/setor/estoque"
                   onClick={() => setIsOpen(false)}
                   className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group ${
-                    pathname === '/setor/estoque' ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-blue-50 hover:text-blue-600'
+                    pathname === '/setor/estoque' ? 'bg-blue-500/10 text-blue-700' : 'text-gray-600 hover:bg-blue-500/10 hover:text-blue-700'
                   }`}
                 >
                   <Package className="h-5 w-5" />
@@ -120,7 +120,7 @@ export default function Sidebar() {
                   href="/setor/consumo"
                   onClick={() => setIsOpen(false)}
                   className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group ${
-                    pathname === '/setor/consumo' ? 'bg-orange-50 text-orange-600' : 'text-gray-600 hover:bg-orange-50 hover:text-orange-600'
+                    pathname === '/setor/consumo' ? 'bg-orange-500/10 text-orange-700' : 'text-gray-600 hover:bg-orange-500/10 hover:text-orange-700'
                   }`}
                 >
                   <ArrowLeftRight className="h-5 w-5" />
@@ -131,7 +131,7 @@ export default function Sidebar() {
                   href="/setor/demandas"
                   onClick={() => setIsOpen(false)}
                   className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group ${
-                    pathname === '/setor/demandas' ? 'bg-green-50 text-green-600' : 'text-gray-600 hover:bg-green-50 hover:text-green-600'
+                    pathname === '/setor/demandas' ? 'bg-green-500/10 text-green-700' : 'text-gray-600 hover:bg-green-500/10 hover:text-green-700'
                   }`}
                 >
                   <ShoppingCart className="h-5 w-5" />
@@ -144,7 +144,7 @@ export default function Sidebar() {
               href="/" 
               onClick={() => setIsOpen(false)}
               className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group ${
-                pathname === '/' ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-blue-50 hover:text-blue-600'
+                pathname === '/' ? 'bg-blue-500/10 text-blue-700' : 'text-gray-600 hover:bg-blue-500/10 hover:text-blue-700'
               }`}
             >
               <Home className="h-5 w-5" />
@@ -156,7 +156,7 @@ export default function Sidebar() {
               href="/entrada" 
               onClick={() => setIsOpen(false)}
               className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group ${
-                pathname === '/entrada' ? 'bg-green-50 text-green-600' : 'text-gray-600 hover:bg-green-50 hover:text-green-600'
+                pathname === '/entrada' ? 'bg-green-500/10 text-green-700' : 'text-gray-600 hover:bg-green-500/10 hover:text-green-700'
               }`}
             >
               <PackagePlus className="h-5 w-5" />
@@ -169,7 +169,7 @@ export default function Sidebar() {
               href="/distribuicao" 
               onClick={() => setIsOpen(false)}
               className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group ${
-                pathname === '/distribuicao' ? 'bg-orange-50 text-orange-600' : 'text-gray-600 hover:bg-orange-50 hover:text-orange-600'
+                pathname === '/distribuicao' ? 'bg-orange-500/10 text-orange-700' : 'text-gray-600 hover:bg-orange-500/10 hover:text-orange-700'
               }`}
             >
               <Truck className="h-5 w-5" />
@@ -182,7 +182,7 @@ export default function Sidebar() {
               href="/saida" 
               onClick={() => setIsOpen(false)}
               className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group ${
-                pathname?.startsWith('/saida') ? 'bg-orange-50 text-orange-600' : 'text-gray-600 hover:bg-orange-50 hover:text-orange-600'
+                pathname?.startsWith('/saida') ? 'bg-orange-500/10 text-orange-700' : 'text-gray-600 hover:bg-orange-500/10 hover:text-orange-700'
               }`}
             >
               <MapPin className="h-5 w-5" />
@@ -195,7 +195,7 @@ export default function Sidebar() {
               href="/saida-justificada"
               onClick={() => setIsOpen(false)}
               className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group ${
-                pathname === '/saida-justificada' ? 'bg-orange-50 text-orange-600' : 'text-gray-600 hover:bg-orange-50 hover:text-orange-600'
+                pathname === '/saida-justificada' ? 'bg-orange-500/10 text-orange-700' : 'text-gray-600 hover:bg-orange-500/10 hover:text-orange-700'
               }`}
             >
               <FileText className="h-5 w-5" />
@@ -208,7 +208,7 @@ export default function Sidebar() {
               href="/demandas"
               onClick={() => setIsOpen(false)}
               className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group ${
-                pathname?.startsWith('/demandas') ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-blue-50 hover:text-blue-600'
+                pathname?.startsWith('/demandas') ? 'bg-blue-500/10 text-blue-700' : 'text-gray-600 hover:bg-blue-500/10 hover:text-blue-700'
               }`}
             >
               <ShoppingCart className="h-5 w-5" />
@@ -225,7 +225,7 @@ export default function Sidebar() {
               href="/produtos/novo" 
               onClick={() => setIsOpen(false)}
               className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group ${
-                pathname === '/produtos/novo' ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-blue-50 hover:text-blue-600'
+                  pathname === '/produtos/novo' ? 'bg-blue-500/10 text-blue-700' : 'text-gray-600 hover:bg-blue-500/10 hover:text-blue-700'
               }`}
             >
               <Package className="h-5 w-5" />
@@ -239,7 +239,7 @@ export default function Sidebar() {
                 href="/categorias" 
                 onClick={() => setIsOpen(false)}
                 className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group ${
-                  pathname === '/categorias' ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-blue-50 hover:text-blue-600'
+                  pathname === '/categorias' ? 'bg-blue-500/10 text-blue-700' : 'text-gray-600 hover:bg-blue-500/10 hover:text-blue-700'
                 }`}
               >
                 <Box className="h-5 w-5" />
@@ -250,7 +250,7 @@ export default function Sidebar() {
                 href="/almoxarifados" 
                 onClick={() => setIsOpen(false)}
                 className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group ${
-                  pathname === '/almoxarifados' ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-blue-50 hover:text-blue-600'
+                  pathname === '/almoxarifados' ? 'bg-blue-500/10 text-blue-700' : 'text-gray-600 hover:bg-blue-500/10 hover:text-blue-700'
                 }`}
               >
                 <Warehouse className="h-5 w-5" />
@@ -264,7 +264,7 @@ export default function Sidebar() {
               href="/usuarios" 
               onClick={() => setIsOpen(false)}
               className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group ${
-                pathname === '/usuarios' ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-blue-50 hover:text-blue-600'
+                pathname === '/usuarios' ? 'bg-blue-500/10 text-blue-700' : 'text-gray-600 hover:bg-blue-500/10 hover:text-blue-700'
               }`}
             >
               <Users className="h-5 w-5" />
@@ -281,7 +281,7 @@ export default function Sidebar() {
               href="/relatorios" 
               onClick={() => setIsOpen(false)}
               className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group ${
-                pathname === '/relatorios' ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-blue-50 hover:text-blue-600'
+                pathname === '/relatorios' ? 'bg-blue-500/10 text-blue-700' : 'text-gray-600 hover:bg-blue-500/10 hover:text-blue-700'
               }`}
             >
               <BarChart className="h-5 w-5" />
@@ -293,7 +293,7 @@ export default function Sidebar() {
             href="/movimentacoes" 
             onClick={() => setIsOpen(false)}
             className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group ${
-              pathname === '/movimentacoes' ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-blue-50 hover:text-blue-600'
+              pathname === '/movimentacoes' ? 'bg-blue-500/10 text-blue-700' : 'text-gray-600 hover:bg-blue-500/10 hover:text-blue-700'
             }`}
           >
             <ArrowLeftRight className="h-5 w-5" />
@@ -304,10 +304,10 @@ export default function Sidebar() {
         </nav>
 
         {/* User / Footer */}
-        <div className="p-4 border-t border-gray-100 bg-gray-50/50">
+        <div className="p-4 border-t border-gray-100/70 bg-white/25">
           {user ? (
             <div className="mb-3 flex items-center gap-3 px-2">
-              <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-xs">
+              <div className="w-8 h-8 rounded-full bg-white/70 border border-white/50 shadow-sm flex items-center justify-center text-blue-700 font-bold text-xs">
                 {user.nome.substring(0, 2).toUpperCase()}
               </div>
               <div className="flex-1 overflow-hidden">
@@ -324,7 +324,7 @@ export default function Sidebar() {
           
           <button 
             onClick={logout}
-            className="flex items-center gap-2 text-sm text-red-600 hover:bg-red-50 px-3 py-2 rounded-lg w-full transition-colors justify-center font-medium"
+            className="soft-btn-danger flex items-center gap-2 text-sm px-3 py-2 w-full justify-center font-medium"
           >
             <LogOut className="h-4 w-4" />
             <span>{user ? 'Sair do Sistema' : 'Ir para Login'}</span>

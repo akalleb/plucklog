@@ -128,7 +128,7 @@ export default function SetorConsumoPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+      <div className="soft-card p-6">
         <div className="flex items-center gap-2 font-semibold text-gray-900 mb-4">
           <ArrowLeftRight className="h-5 w-5 text-orange-600" /> Registrar Consumo
         </div>
@@ -160,11 +160,11 @@ export default function SetorConsumoPage() {
                   }}
                   onFocus={() => setShowSuggestions(true)}
                   onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none bg-white"
+                  className="soft-input w-full px-3 py-2 outline-none"
                   placeholder="Buscar por nome ou código..."
                 />
                 {showSuggestions && (
-                  <div className="absolute z-10 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg max-h-64 overflow-auto">
+                  <div className="absolute z-10 mt-1 w-full soft-card max-h-64 overflow-auto">
                     {suggestions.length === 0 ? (
                       <div className="px-3 py-2 text-sm text-gray-500">Nenhum produto encontrado.</div>
                     ) : (
@@ -203,7 +203,7 @@ export default function SetorConsumoPage() {
                 step="1"
                 value={quantidade}
                 onChange={e => setQuantidade(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
+                className="soft-input w-full px-3 py-2 outline-none"
                 placeholder="0"
               />
               {selected && <div className="text-xs text-gray-500 mt-1">Disponível: {Math.round(Number(selected.quantidade_disponivel || 0))}</div>}
@@ -215,7 +215,7 @@ export default function SetorConsumoPage() {
                 type="text"
                 value={observacoes}
                 onChange={e => setObservacoes(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
+                className="soft-input w-full px-3 py-2 outline-none"
                 placeholder="Opcional"
               />
             </div>
@@ -224,7 +224,7 @@ export default function SetorConsumoPage() {
               <button
                 type="submit"
                 disabled={sending}
-                className="px-4 py-2 rounded-lg bg-orange-600 text-white font-medium hover:bg-orange-700 disabled:opacity-50"
+                className="soft-btn px-4 py-2 bg-orange-600 text-white border-orange-500/30 hover:bg-orange-700 disabled:opacity-50"
               >
                 {sending ? 'Registrando...' : 'Registrar'}
               </button>

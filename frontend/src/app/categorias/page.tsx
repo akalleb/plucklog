@@ -97,20 +97,20 @@ export default function CategoriasPage() {
         </div>
         <button 
           onClick={openNewModal}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          className="soft-btn-primary flex items-center gap-2 px-4 py-2"
         >
           <Plus className="h-4 w-4" /> Nova Categoria
         </button>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className="p-4 border-b border-gray-100 bg-gray-50 flex gap-4">
+      <div className="soft-card overflow-hidden">
+        <div className="p-4 border-b border-gray-100/70 bg-white/40 flex gap-4">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input 
               type="text" 
               placeholder="Buscar categorias..."
-              className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="soft-input w-full pl-10 pr-4 py-2 outline-none"
             />
           </div>
         </div>
@@ -154,7 +154,7 @@ export default function CategoriasPage() {
       {/* Modal Simplificado */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl">
+          <div className="soft-card-strong p-6 w-full max-w-md">
             <h2 className="text-xl font-bold mb-4">{editingId ? 'Editar Categoria' : 'Nova Categoria'}</h2>
             <form onSubmit={handleSave} className="space-y-4">
               <div>
@@ -163,7 +163,7 @@ export default function CategoriasPage() {
                   autoFocus
                   required
                   type="text" 
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                  className="soft-input w-full px-3 py-2 outline-none"
                   value={newCat.nome}
                   onChange={e => setNewCat({...newCat, nome: e.target.value})}
                 />
@@ -171,7 +171,7 @@ export default function CategoriasPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
                 <textarea 
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                  className="soft-input w-full px-3 py-2 outline-none"
                   rows={3}
                   value={newCat.descricao}
                   onChange={e => setNewCat({...newCat, descricao: e.target.value})}
@@ -181,13 +181,13 @@ export default function CategoriasPage() {
                 <button 
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                  className="soft-btn px-4 py-2 text-gray-700"
                 >
                   Cancelar
                 </button>
                 <button 
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  className="soft-btn-primary px-4 py-2"
                 >
                   Salvar
                 </button>

@@ -2236,11 +2236,21 @@ async def get_estoque_por_central(central_id: str, user: Dict[str, Any] = Depend
     sub_ids_all: List[Any] = list(dict.fromkeys(sub_ids + [int(x) for x in sub_ids if str(x).isdigit()]))
 
     query = {
-        "$or": [
-            {"almoxarifado_id": {"$in": almox_ids_all}},
-            {"local_tipo": "almoxarifado", "local_id": {"$in": almox_ids_all}},
-            {"sub_almoxarifado_id": {"$in": sub_ids_all}},
-            {"local_tipo": "sub_almoxarifado", "local_id": {"$in": sub_ids_all}},
+        "$and": [
+            {
+                "$or": [
+                    {"almoxarifado_id": {"$in": almox_ids_all}},
+                    {"local_tipo": "almoxarifado", "local_id": {"$in": almox_ids_all}},
+                    {"sub_almoxarifado_id": {"$in": sub_ids_all}},
+                    {"local_tipo": "sub_almoxarifado", "local_id": {"$in": sub_ids_all}},
+                ]
+            },
+            {
+                "$or": [
+                    {"local_tipo": {"$exists": False}},
+                    {"local_tipo": {"$in": ["almoxarifado", "sub_almoxarifado"]}},
+                ]
+            },
         ]
     }
     docs = await db.db.estoques.find(query).to_list(length=20000)
@@ -3606,40 +3616,103 @@ async def post_distribuicao(req: MovimentacaoRequest, user: Dict[str, Any] = Dep
                 raise HTTPException(status_code=403, detail="Destino não autorizado para recebimento de outra central")
 
     # 4. Verificar Saldo na Origem
-    estoque_origem = await db.db.estoques.find_one({
-        "produto_id": pid_out,
-        "local_tipo": origem_tipo,
-        "local_id": oid_out
-    })
-    
-    saldo_atual = float(estoque_origem.get("quantidade_disponivel", 0)) if estoque_origem else 0
+    pid_vals = _id_candidates(pid_out)
+    oid_vals = _id_candidates(oid_out)
+
+    origem_query: Dict[str, Any] = {"produto_id": {"$in": pid_vals}}
+    if origem_tipo == "almoxarifado":
+        origem_query["$or"] = [
+            {"local_tipo": "almoxarifado", "local_id": {"$in": oid_vals}},
+            {"almoxarifado_id": {"$in": oid_vals}},
+            {"local_tipo": {"$exists": False}, "local_id": {"$in": oid_vals}},
+        ]
+    else:
+        origem_query["$or"] = [
+            {"local_tipo": "sub_almoxarifado", "local_id": {"$in": oid_vals}},
+            {"sub_almoxarifado_id": {"$in": oid_vals}},
+            {"local_tipo": {"$exists": False}, "local_id": {"$in": oid_vals}},
+        ]
+
+    estoque_origem = await db.db.estoques.find_one(origem_query)
+
+    if not estoque_origem:
+        raise HTTPException(status_code=400, detail="Não há estoque correspondente na origem")
+
+    qtd_raw = estoque_origem.get("quantidade")
+    try:
+        qtd_base = float(qtd_raw or 0)
+    except (TypeError, ValueError):
+        qtd_base = 0.0
+
+    atual_raw = estoque_origem.get("quantidade_atual")
+    if atual_raw is None:
+        atual_base = float(qtd_base)
+    else:
+        try:
+            atual_base = float(atual_raw or 0)
+        except (TypeError, ValueError):
+            atual_base = float(qtd_base)
+
+    disp_raw = estoque_origem.get("quantidade_disponivel")
+    if disp_raw is None:
+        disp_base = float(qtd_base)
+    else:
+        try:
+            disp_base = float(disp_raw or 0)
+        except (TypeError, ValueError):
+            disp_base = float(qtd_base)
+
+    saldo_atual = float(disp_base)
     if saldo_atual < req.quantidade:
         raise HTTPException(status_code=400, detail=f"Saldo insuficiente na origem. Disponível: {saldo_atual}")
 
     now = _now_utc()
 
     # 5. Decrementar Origem
+    next_qtd = float(qtd_base) - float(req.quantidade)
+    next_atual = float(atual_base) - float(req.quantidade)
+    next_disp = float(disp_base) - float(req.quantidade)
+
     await db.db.estoques.update_one(
         {"_id": estoque_origem["_id"]},
-        {
-            "$inc": {
-                "quantidade": -req.quantidade,
-                "quantidade_disponivel": -req.quantidade
-            },
-            "$set": {"updated_at": now}
-        }
+        {"$set": {"quantidade": next_qtd, "quantidade_atual": next_atual, "quantidade_disponivel": next_disp, "updated_at": now}},
     )
 
     # 6. Incrementar Destino (Upsert)
     estoque_dest_filter = {
-        'produto_id': pid_out, 
-        'local_tipo': destino_tipo, 
+        'produto_id': pid_out,
+        'local_tipo': destino_tipo,
         'local_id': did_out
     }
+
+    did_vals = _id_candidates(did_out)
+    dest_query: Dict[str, Any] = {"produto_id": {"$in": pid_vals}}
+    if destino_tipo == "setor":
+        dest_query["$or"] = [
+            {"local_tipo": "setor", "local_id": {"$in": did_vals}},
+            {"setor_id": {"$in": did_vals}},
+            {"local_tipo": {"$exists": False}, "local_id": {"$in": did_vals}},
+        ]
+    elif destino_tipo == "sub_almoxarifado":
+        dest_query["$or"] = [
+            {"local_tipo": "sub_almoxarifado", "local_id": {"$in": did_vals}},
+            {"sub_almoxarifado_id": {"$in": did_vals}},
+            {"local_tipo": {"$exists": False}, "local_id": {"$in": did_vals}},
+        ]
+    else:
+        dest_query["$or"] = [
+            {"local_tipo": "almoxarifado", "local_id": {"$in": did_vals}},
+            {"almoxarifado_id": {"$in": did_vals}},
+            {"local_tipo": {"$exists": False}, "local_id": {"$in": did_vals}},
+        ]
+    existing_dest = await db.db.estoques.find_one(dest_query, {"_id": 1})
+    if existing_dest and existing_dest.get("_id") is not None:
+        estoque_dest_filter = {"_id": existing_dest["_id"]}
     
     estoque_dest_update = {
         '$inc': {
             'quantidade': req.quantidade,
+            'quantidade_atual': req.quantidade,
             'quantidade_disponivel': req.quantidade
         },
         '$set': {

@@ -753,3 +753,136 @@ def test_fastapi_estorno_distribuicao_move_estoque_e_resolve_nome_usuario():
     resp = asyncio.run(get_movimentacoes(page=1, per_page=20, tipo=None, produto=None, user=user_ctx))
     items = resp.get("items") or []
     assert any((it.get("tipo") == "estorno_distribuicao" and it.get("usuario") == "Admin Teste") for it in items)
+
+
+def test_fastapi_distribuicao_encontra_estoque_com_local_id_int_e_sem_quantidade_disponivel():
+    import asyncio
+    from datetime import datetime, timezone
+
+    from bson import ObjectId
+    import mongomock
+
+    from fastapi_app.main import MONGO_DB
+    from fastapi_app.main import MovimentacaoRequest
+    from fastapi_app.main import _AsyncMockDatabase
+    from fastapi_app.main import db as fastapi_db
+    from fastapi_app.main import post_distribuicao
+
+    fastapi_db.db = _AsyncMockDatabase(mongomock.MongoClient()[MONGO_DB])
+    fastapi_db.client = None
+    fastapi_db.is_mock = True
+
+    now = datetime.now(timezone.utc)
+    user_id = ObjectId()
+    produto_oid = ObjectId()
+
+    async def _seed():
+        await fastapi_db.db.usuarios.insert_one({"_id": user_id, "role": "super_admin", "ativo": True})
+        await fastapi_db.db.centrais.insert_one({"id": "CENT1", "nome": "Central 1"})
+        await fastapi_db.db.almoxarifados.insert_one({"id": 1, "nome": "Almox 1", "central_id": "CENT1"})
+        await fastapi_db.db.setores.insert_one({"id": "SET1", "nome": "Setor 1", "almoxarifado_id": 1})
+        await fastapi_db.db.produtos.insert_one({"_id": produto_oid, "nome": "Produto Teste", "codigo": "P-TESTE", "central_id": "CENT1"})
+        await fastapi_db.db.estoques.insert_one(
+            {
+                "produto_id": str(produto_oid),
+                "local_tipo": "almoxarifado",
+                "local_id": 1,
+                "almoxarifado_id": 1,
+                "quantidade": 479.0,
+                "created_at": now,
+                "updated_at": now,
+            }
+        )
+
+    asyncio.run(_seed())
+
+    user_ctx = {"id": str(user_id), "role": "super_admin", "scope_id": None}
+    req = MovimentacaoRequest(
+        produto_id=str(produto_oid),
+        quantidade=1.0,
+        origem_tipo="almoxarifado",
+        origem_id="1",
+        destino_tipo="setor",
+        destino_id="SET1",
+        observacoes="Distribuição teste",
+    )
+    asyncio.run(post_distribuicao(req=req, user=user_ctx))
+
+    async def _read_origem():
+        return await fastapi_db.db.estoques.find_one({"produto_id": str(produto_oid), "almoxarifado_id": 1})
+
+    async def _read_setor():
+        return await fastapi_db.db.estoques.find_one({"produto_id": str(produto_oid), "local_tipo": "setor", "local_id": "SET1"})
+
+    origem_doc = asyncio.run(_read_origem()) or {}
+    setor_doc = asyncio.run(_read_setor()) or {}
+    assert float(origem_doc.get("quantidade", 0)) == 478.0
+    assert float(origem_doc.get("quantidade_disponivel", 0)) == 478.0
+    assert float(origem_doc.get("quantidade_atual", 0)) == 478.0
+    assert float(setor_doc.get("quantidade", 0)) == 1.0
+    assert float(setor_doc.get("quantidade_disponivel", 0)) == 1.0
+    assert float(setor_doc.get("quantidade_atual", 0)) == 1.0
+
+
+def test_fastapi_estoque_central_nao_inclui_setor_e_reflete_saida():
+    import asyncio
+    from datetime import datetime, timezone
+
+    from bson import ObjectId
+    import mongomock
+
+    from fastapi_app.main import MONGO_DB
+    from fastapi_app.main import MovimentacaoRequest
+    from fastapi_app.main import _AsyncMockDatabase
+    from fastapi_app.main import db as fastapi_db
+    from fastapi_app.main import get_estoque_por_central
+    from fastapi_app.main import post_distribuicao
+
+    fastapi_db.db = _AsyncMockDatabase(mongomock.MongoClient()[MONGO_DB])
+    fastapi_db.client = None
+    fastapi_db.is_mock = True
+
+    now = datetime.now(timezone.utc)
+    user_id = ObjectId()
+    produto_oid = ObjectId()
+
+    async def _seed():
+        await fastapi_db.db.usuarios.insert_one({"_id": user_id, "role": "super_admin", "ativo": True})
+        await fastapi_db.db.centrais.insert_one({"id": "CENT1", "nome": "Central 1"})
+        await fastapi_db.db.almoxarifados.insert_one({"id": "ALMOX1", "nome": "Almox 1", "central_id": "CENT1"})
+        await fastapi_db.db.setores.insert_one({"id": "SET1", "nome": "Setor 1", "almoxarifado_id": "ALMOX1"})
+        await fastapi_db.db.produtos.insert_one({"_id": produto_oid, "nome": "Produto Teste", "codigo": "P-TESTE", "central_id": "CENT1"})
+        await fastapi_db.db.estoques.insert_one(
+            {
+                "produto_id": str(produto_oid),
+                "local_tipo": "almoxarifado",
+                "local_id": "ALMOX1",
+                "almoxarifado_id": "ALMOX1",
+                "quantidade": 479.0,
+                "quantidade_atual": 479.0,
+                "quantidade_disponivel": 479.0,
+                "created_at": now,
+                "updated_at": now,
+            }
+        )
+
+    asyncio.run(_seed())
+
+    user_ctx = {"id": str(user_id), "role": "super_admin", "scope_id": None}
+    req = MovimentacaoRequest(
+        produto_id=str(produto_oid),
+        quantidade=1.0,
+        origem_tipo="almoxarifado",
+        origem_id="ALMOX1",
+        destino_tipo="setor",
+        destino_id="SET1",
+        observacoes="Distribuição teste",
+    )
+    asyncio.run(post_distribuicao(req=req, user=user_ctx))
+
+    resp = asyncio.run(get_estoque_por_central("CENT1", user=user_ctx))
+    items = resp.get("items") or []
+    prod = next((x for x in items if str(x.get("produto_id")) == str(produto_oid)), None) or {}
+    assert float(prod.get("total_disponivel", -1)) == 478.0
+    origens = prod.get("origens") or []
+    assert any(o.get("tipo") == "almoxarifado" and o.get("id") == "ALMOX1" and float(o.get("quantidade_disponivel", 0)) == 478.0 for o in origens)

@@ -151,7 +151,7 @@ export default function Sidebar() {
               <span className="font-medium">Visão Geral</span>
             </Link>
           
-          {(canAccess(['super_admin', 'admin_central', 'gerente_almox'])) && (
+          {(canAccess(['super_admin', 'admin_central', 'gerente_almox', 'resp_sub_almox'])) && (
             <Link 
               href="/entrada" 
               onClick={() => setIsOpen(false)}
@@ -220,7 +220,7 @@ export default function Sidebar() {
             <p className="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Gestão</p>
           </div>
 
-          {(canAccess(['super_admin', 'admin_central', 'gerente_almox'])) && (
+          {(canAccess(['super_admin', 'admin_central', 'gerente_almox', 'resp_sub_almox'])) && (
             <Link 
               href="/produtos/novo" 
               onClick={() => setIsOpen(false)}

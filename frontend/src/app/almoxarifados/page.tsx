@@ -41,6 +41,7 @@ interface Setor {
   sub_almoxarifado_id?: string;
   sub_almoxarifado_ids?: string[];
   almoxarifado_id?: string;
+  central_id?: string;
   tipo: 'setor';
   can_receive_inter_central?: boolean;
 }
@@ -224,6 +225,7 @@ export default function AlmoxarifadosPage() {
     parent_ref: '',
     setor_almoxarifado_id: '',
     setor_sub_almoxarifado_ids: [] as string[],
+    sub_setor_ids: [] as string[],
     can_receive_inter_central: false
   });
 
@@ -268,6 +270,7 @@ export default function AlmoxarifadosPage() {
     if (item.tipo === 'sub_almoxarifado') parentRef = item.almoxarifado_id ? `almox:${item.almoxarifado_id}` : '';
     let setorAlmoxId = '';
     let setorSubs: string[] = [];
+    let subSetorIds: string[] = [];
     if (item.tipo === 'setor') {
       setorAlmoxId = item.almoxarifado_id || '';
       setorSubs = item.sub_almoxarifado_ids?.length
@@ -279,6 +282,15 @@ export default function AlmoxarifadosPage() {
         const sub = subAlmoxarifados.find(s => s.id === setorSubs[0]);
         setorAlmoxId = sub?.almoxarifado_id || '';
       }
+    }
+    if (item.tipo === 'sub_almoxarifado') {
+      subSetorIds = setores
+        .filter(s => {
+          if (s.sub_almoxarifado_id === item.id) return true;
+          if (s.sub_almoxarifado_ids && s.sub_almoxarifado_ids.includes(item.id)) return true;
+          return false;
+        })
+        .map(s => s.id);
     }
 
     const endereco = 'endereco' in item ? item.endereco ?? '' : '';
@@ -297,6 +309,7 @@ export default function AlmoxarifadosPage() {
       parent_ref: parentRef,
       setor_almoxarifado_id: setorAlmoxId,
       setor_sub_almoxarifado_ids: setorSubs,
+      sub_setor_ids: subSetorIds,
       can_receive_inter_central: canReceive
     });
     setEditingId(item.id);
@@ -370,6 +383,29 @@ export default function AlmoxarifadosPage() {
       });
       
       if (res.ok) {
+        if (formData.tipo === 'sub_almoxarifado') {
+          let createdId: string | null = null;
+          if (!editingId) {
+            try {
+              const data = await res.json();
+              createdId = typeof data?.id === 'string' ? data.id : null;
+            } catch {
+              createdId = null;
+            }
+          }
+          const subId = editingId || createdId;
+          if (subId) {
+            const linkRes = await fetch(apiUrl(`/api/sub_almoxarifados/${subId}/setores`), {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json', 'X-User-Id': user.id },
+              body: JSON.stringify({ setor_ids: formData.sub_setor_ids })
+            });
+            if (!linkRes.ok) {
+              const err = await linkRes.json().catch(() => ({}));
+              alert('Sub salvo, mas vínculo de setores falhou: ' + (err.detail || 'Erro desconhecido'));
+            }
+          }
+        }
         setShowModal(false);
         resetForm();
         fetchData(user.id);
@@ -393,6 +429,7 @@ export default function AlmoxarifadosPage() {
       parent_ref: '',
       setor_almoxarifado_id: '',
       setor_sub_almoxarifado_ids: [],
+      sub_setor_ids: [],
       can_receive_inter_central: false
     });
     setEditingId(null);
@@ -474,6 +511,7 @@ export default function AlmoxarifadosPage() {
                       parent_ref: '',
                       setor_almoxarifado_id: '',
                       setor_sub_almoxarifado_ids: [],
+                      sub_setor_ids: [],
                       can_receive_inter_central: false
                     })}
                     disabled={!!editingId} // Não mudar tipo na edição para simplificar
@@ -506,13 +544,51 @@ export default function AlmoxarifadosPage() {
                     required
                     className="soft-input w-full px-3 py-2 outline-none"
                     value={formData.parent_ref}
-                    onChange={e => setFormData({...formData, parent_ref: e.target.value})}
+                    onChange={e => setFormData({
+                      ...formData,
+                      parent_ref: e.target.value,
+                      sub_setor_ids: formData.tipo === 'sub_almoxarifado' ? [] : formData.sub_setor_ids
+                    })}
                   >
                     <option value="">Selecione...</option>
                     {getAvailableParents().map(p => (
                       <option key={p.id} value={p.id}>{p.nome}</option>
                     ))}
                   </select>
+                </div>
+              )}
+
+              {formData.tipo === 'sub_almoxarifado' && formData.parent_ref && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Setores que podem receber deste Sub-Almoxarifado</label>
+                  <div className="soft-card max-h-44 overflow-auto divide-y divide-gray-100">
+                    {setores
+                      .filter(s => {
+                        const almoxId = formData.parent_ref.split(':', 2)[1] || '';
+                        const centralId = almoxarifados.find(a => a.id === almoxId)?.central_id || '';
+                        if (!centralId) return false;
+                        const setorCentralId = s.central_id || almoxarifados.find(a => a.id === (s.almoxarifado_id || ''))?.central_id || '';
+                        return setorCentralId === centralId;
+                      })
+                      .map(s => {
+                        const checked = formData.sub_setor_ids.includes(s.id);
+                        return (
+                          <label key={s.id} className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => {
+                                const next = checked
+                                  ? formData.sub_setor_ids.filter(x => x !== s.id)
+                                  : [...formData.sub_setor_ids, s.id];
+                                setFormData({ ...formData, sub_setor_ids: next });
+                              }}
+                            />
+                            <span>{s.nome}</span>
+                          </label>
+                        );
+                      })}
+                  </div>
                 </div>
               )}
 

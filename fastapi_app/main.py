@@ -2380,6 +2380,7 @@ async def post_entrada(req: EntradaRequest, user: Dict[str, Any] = Depends(get_c
     destino_out = None
     almox_id_out = None
     sub_id_out = None
+    destino_central_id = None
 
     if destino_tipo == "almoxarifado":
         almox = await db.db.almoxarifados.find_one(_build_id_query(destino_id))
@@ -2388,6 +2389,7 @@ async def post_entrada(req: EntradaRequest, user: Dict[str, Any] = Depends(get_c
         destino_out = _public_id(almox) or destino_id
         almox_id_out = destino_out
         destino_nome = almox.get("nome") or almox.get("descricao") or "Almoxarifado"
+        destino_central_id = _norm_id(almox.get("central_id"))
     elif destino_tipo == "sub_almoxarifado":
         sub = await db.db.sub_almoxarifados.find_one(_build_id_query(destino_id))
         if not sub:
@@ -2400,8 +2402,35 @@ async def post_entrada(req: EntradaRequest, user: Dict[str, Any] = Depends(get_c
             raise HTTPException(status_code=400, detail="Sub-Almoxarifado sem Almoxarifado pai")
         almox = await db.db.almoxarifados.find_one(_build_id_query(almox_id_out))
         almox_id_out = _public_id(almox) or almox_id_out if almox else almox_id_out
+        destino_central_id = _norm_id(almox.get("central_id")) if almox else None
     else:
         raise HTTPException(status_code=400, detail="Tipo de destino inválido")
+
+    role = (user.get("role") or "").strip()
+    scope_id = _norm_id(user.get("scope_id"))
+    if role not in ("super_admin", "admin_central", "gerente_almox", "resp_sub_almox"):
+        raise HTTPException(status_code=403, detail="Acesso negado")
+    if role != "super_admin" and not scope_id:
+        raise HTTPException(status_code=400, detail="Usuário sem escopo associado")
+
+    if role == "resp_sub_almox":
+        if destino_tipo != "sub_almoxarifado":
+            raise HTTPException(status_code=403, detail="Acesso negado")
+        allowed_scope = {str(x) for x in _id_candidates(scope_id)}
+        destino_candidates = {str(x) for x in _id_candidates(destino_id)}
+        destino_candidates.update({str(x) for x in _id_candidates(destino_out)})
+        if not (allowed_scope & destino_candidates):
+            raise HTTPException(status_code=403, detail="Acesso negado")
+    elif role == "gerente_almox":
+        if destino_tipo == "almoxarifado":
+            if _norm_id(destino_out) != scope_id:
+                raise HTTPException(status_code=403, detail="Acesso negado")
+        else:
+            if _norm_id(almox_id_out) != scope_id:
+                raise HTTPException(status_code=403, detail="Acesso negado")
+    elif role == "admin_central":
+        if not destino_central_id or _norm_id(destino_central_id) != scope_id:
+            raise HTTPException(status_code=403, detail="Acesso negado")
 
     now = _now_utc()
 
@@ -2567,6 +2596,9 @@ class SubAlmoxarifadoItem(BaseModel):
     almoxarifado_id: Optional[str] = None
     can_receive_inter_central: Optional[bool] = None
 
+class SubAlmoxarifadoSetoresPayload(BaseModel):
+    setor_ids: List[str] = []
+
 # --- Rotas de Cadastros Básicos ---
 
 @app.get("/api/sub_almoxarifados", response_model=List[SubAlmoxarifadoItem])
@@ -2595,7 +2627,7 @@ async def get_sub_almoxarifados(
         elif role == "gerente_almox" and scope_id:
             allowed_almox_ids = {scope_id}
         elif role == "resp_sub_almox" and scope_id:
-            allowed_sub_ids = {scope_id}
+            allowed_sub_ids = {str(x) for x in _id_candidates(scope_id)}
         elif role == "operador_setor" and scope_id:
             setor = await _find_one_by_id("setores", scope_id)
             if setor:
@@ -2610,8 +2642,14 @@ async def get_sub_almoxarifados(
         almox_id = _norm_id(s.get("almoxarifado_id"))
         bypass_scope = bool(s.get("can_receive_inter_central", False)) and role != "operador_setor" and include_inter_central
         if not bypass_scope:
-            if allowed_sub_ids is not None and sub_id not in allowed_sub_ids:
-                continue
+            if allowed_sub_ids is not None:
+                sub_candidates = {str(x) for x in _id_candidates(sub_id)}
+                if s.get("_id") is not None:
+                    sub_candidates.update({str(x) for x in _id_candidates(s.get("_id"))})
+                if s.get("id") is not None:
+                    sub_candidates.update({str(x) for x in _id_candidates(s.get("id"))})
+                if not (sub_candidates & allowed_sub_ids):
+                    continue
             if allowed_almox_ids is not None and almox_id not in allowed_almox_ids:
                 continue
         results.append({
@@ -2652,7 +2690,8 @@ async def create_sub_almoxarifado(item: SubAlmoxarifadoItem, user: Dict[str, Any
                 raise HTTPException(status_code=403, detail="Acesso negado")
              
     res = await db.db.sub_almoxarifados.insert_one(doc)
-    return {"id": str(res.inserted_id), **doc}
+    doc_out = {k: v for k, v in doc.items() if k != "_id"}
+    return {"id": str(res.inserted_id), **doc_out}
 
 @app.put("/api/sub_almoxarifados/{sub_id}")
 async def update_sub_almoxarifado(sub_id: str, item: SubAlmoxarifadoItem, user: Dict[str, Any] = Depends(_require_roles(["admin_central", "gerente_almox", "resp_sub_almox"]))):
@@ -2683,6 +2722,108 @@ async def update_sub_almoxarifado(sub_id: str, item: SubAlmoxarifadoItem, user: 
     if res.matched_count == 0:
         raise HTTPException(status_code=404, detail="Sub-Almoxarifado não encontrado")
     return {"status": "success", "message": "Sub-Almoxarifado atualizado"}
+
+@app.put("/api/sub_almoxarifados/{sub_id}/setores")
+async def set_sub_almoxarifado_setores(
+    sub_id: str,
+    payload: SubAlmoxarifadoSetoresPayload,
+    user: Dict[str, Any] = Depends(_require_roles(["admin_central", "gerente_almox", "resp_sub_almox"])),
+):
+    sub = await db.db.sub_almoxarifados.find_one(_build_id_query(sub_id))
+    if not sub:
+        raise HTTPException(status_code=404, detail="Sub-Almoxarifado não encontrado")
+
+    role = user.get("role")
+    scope_id = user.get("scope_id")
+    if role == "resp_sub_almox" and scope_id:
+        if _norm_id(_public_id(sub) or sub_id) != _norm_id(scope_id):
+            raise HTTPException(status_code=403, detail="Acesso negado")
+    if role == "gerente_almox" and scope_id:
+        if _norm_id(sub.get("almoxarifado_id")) != _norm_id(scope_id):
+            raise HTTPException(status_code=403, detail="Acesso negado")
+    if role == "admin_central" and scope_id:
+        almox = await _find_one_by_id("almoxarifados", str(sub.get("almoxarifado_id")))
+        if not almox or _norm_id(almox.get("central_id")) != _norm_id(scope_id):
+            raise HTTPException(status_code=403, detail="Acesso negado")
+
+    almox_id = _norm_id(sub.get("almoxarifado_id"))
+    if not almox_id:
+        raise HTTPException(status_code=400, detail="Sub-Almoxarifado sem almoxarifado vinculado")
+
+    almox_doc = await _find_one_by_id("almoxarifados", almox_id)
+    central_id = _norm_id(almox_doc.get("central_id")) if almox_doc else None
+    if not central_id:
+        raise HTTPException(status_code=400, detail="Almoxarifado do Sub sem central vinculada")
+
+    sub_public_id = _norm_id(_public_id(sub) or sub_id)
+    requested_ids = {_norm_id(x) for x in (payload.setor_ids or []) if _norm_id(x)}
+
+    if requested_ids:
+        ors: List[Dict[str, Any]] = []
+        for sid in requested_ids:
+            ors.extend(_build_id_query(sid).get("$or") or [])
+        requested_docs = await db.db.setores.find({"$or": ors}).to_list(length=2000)
+        found: set[str] = set()
+        for d in requested_docs:
+            did = _norm_id(_public_id(d) or str(d.get("_id")))
+            if did:
+                found.add(did)
+            chain = await _resolve_parent_chain_from_setor(d)
+            if _norm_id(chain.get("central_id")) != central_id:
+                raise HTTPException(status_code=400, detail="Setor fora da central do Sub-Almoxarifado")
+        missing = [sid for sid in requested_ids if sid not in found]
+        if missing:
+            raise HTTPException(status_code=400, detail="Setor não encontrado")
+
+    sub_candidates = _id_candidates(sub_public_id)
+    already_linked = await db.db.setores.find(
+        {"$or": [{"sub_almoxarifado_id": {"$in": sub_candidates}}, {"sub_almoxarifado_ids": {"$in": sub_candidates}}]}
+    ).to_list(length=5000)
+
+    setor_candidates: List[Dict[str, Any]] = []
+    by_oid: set[str] = set()
+    for d in (already_linked or []):
+        oid = str(d.get("_id"))
+        if not oid or oid in by_oid:
+            continue
+        by_oid.add(oid)
+        setor_candidates.append(d)
+    for d in (requested_docs if requested_ids else []):
+        oid = str(d.get("_id"))
+        if not oid or oid in by_oid:
+            continue
+        by_oid.add(oid)
+        setor_candidates.append(d)
+
+    updated = 0
+    for s in setor_candidates:
+        sid = _norm_id(_public_id(s) or str(s.get("_id")))
+        if not sid:
+            continue
+        subs = [_norm_id(x) for x in (s.get("sub_almoxarifado_ids") or []) if _norm_id(x)]
+        if not subs:
+            single = _norm_id(s.get("sub_almoxarifado_id"))
+            subs = [single] if single else []
+
+        next_subs = list(subs)
+        if sid in requested_ids:
+            if sub_public_id not in next_subs:
+                next_subs.append(sub_public_id)
+        else:
+            next_subs = [x for x in next_subs if _norm_id(x) != sub_public_id]
+
+        if next_subs == subs:
+            continue
+
+        update_data: Dict[str, Any] = {
+            "sub_almoxarifado_ids": next_subs or None,
+            "sub_almoxarifado_id": next_subs[0] if next_subs else None,
+        }
+        res = await db.db.setores.update_one({"_id": s["_id"]}, {"$set": update_data})
+        if res.modified_count:
+            updated += 1
+
+    return {"status": "success", "updated": updated}
 
 @app.delete("/api/sub_almoxarifados/{sub_id}")
 async def delete_sub_almoxarifado(sub_id: str, user: Dict[str, Any] = Depends(_require_roles(["admin_central", "gerente_almox", "resp_sub_almox"]))):
@@ -3406,7 +3547,7 @@ class CodigoRequest(BaseModel):
 async def create_produto(prod: ProdutoCreate, user: Dict[str, Any] = Depends(get_current_user)):
     role = user.get("role")
     scope_id = user.get("scope_id")
-    if role not in ("super_admin", "admin_central", "gerente_almox"):
+    if role not in ("super_admin", "admin_central", "gerente_almox", "resp_sub_almox"):
         raise HTTPException(status_code=403, detail="Acesso negado")
     if role != "super_admin" and not scope_id:
         raise HTTPException(status_code=400, detail="Usuário sem escopo associado")
@@ -3420,6 +3561,10 @@ async def create_produto(prod: ProdutoCreate, user: Dict[str, Any] = Depends(get
     central_id = prod.central_id
     if role != "super_admin":
         central_id = await _compute_user_central_id(role, scope_id, prod.central_id, strict=True)
+        allowed = await _allowed_central_ids_for_user(user)
+        allowed_norm = {_norm_id(x) for x in (allowed or []) if _norm_id(x)}
+        if allowed_norm and _norm_id(central_id) not in allowed_norm:
+            raise HTTPException(status_code=403, detail="Acesso negado")
 
     central = await _find_one_by_id("centrais", central_id)
     if not central:

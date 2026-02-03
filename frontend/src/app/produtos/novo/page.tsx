@@ -53,6 +53,10 @@ export default function NovoProdutoPage() {
           setFormData(prev => ({ ...prev, central_id: user.scope_id || '' }));
           return;
         }
+        if (user.role === 'resp_sub_almox' && user.central_id) {
+          setFormData(prev => ({ ...prev, central_id: user.central_id || '' }));
+          return;
+        }
         if (data.length === 1) {
           setFormData(prev => ({ ...prev, central_id: data[0]?.id || '' }));
         }
@@ -131,7 +135,7 @@ export default function NovoProdutoPage() {
                 className="soft-input w-full px-4 py-2 outline-none"
                 value={formData.central_id}
                 onChange={e => setFormData({ ...formData, central_id: e.target.value })}
-                disabled={user?.role === 'admin_central'}
+                disabled={user?.role === 'admin_central' || (user?.role === 'resp_sub_almox' && !!formData.central_id)}
               >
                 <option value="">Selecione...</option>
                 {centrais.map(c => (

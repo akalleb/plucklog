@@ -886,3 +886,50 @@ def test_fastapi_estoque_central_nao_inclui_setor_e_reflete_saida():
     assert float(prod.get("total_disponivel", -1)) == 478.0
     origens = prod.get("origens") or []
     assert any(o.get("tipo") == "almoxarifado" and o.get("id") == "ALMOX1" and float(o.get("quantidade_disponivel", 0)) == 478.0 for o in origens)
+
+
+def test_fastapi_create_produto_resp_sub_almox_respeita_escopo_da_central():
+    import asyncio
+
+    import pytest
+    import mongomock
+    from fastapi import HTTPException
+
+    from fastapi_app.main import MONGO_DB
+    from fastapi_app.main import ProdutoCreate
+    from fastapi_app.main import _AsyncMockDatabase
+    from fastapi_app.main import create_produto
+    from fastapi_app.main import db as fastapi_db
+
+    fastapi_db.db = _AsyncMockDatabase(mongomock.MongoClient()[MONGO_DB])
+    fastapi_db.client = None
+    fastapi_db.is_mock = True
+
+    async def _seed():
+        await fastapi_db.db.centrais.insert_one({"id": "CENT1", "nome": "Central 1"})
+        await fastapi_db.db.centrais.insert_one({"id": "CENT2", "nome": "Central 2"})
+        await fastapi_db.db.almoxarifados.insert_one({"id": "ALMOX1", "nome": "Almox 1", "central_id": "CENT1"})
+        await fastapi_db.db.sub_almoxarifados.insert_one({"id": "SUB1", "nome": "Sub 1", "almoxarifado_id": "ALMOX1"})
+        await fastapi_db.db.usuarios.insert_one({"id": "USR1", "role": "resp_sub_almox", "scope_id": "SUB1", "ativo": True})
+
+    asyncio.run(_seed())
+
+    user_ctx = {"id": "USR1", "role": "resp_sub_almox", "scope_id": "SUB1"}
+
+    with pytest.raises(HTTPException) as exc:
+        asyncio.run(
+            create_produto(
+                ProdutoCreate(central_id="CENT2", codigo="P-ESC-001", nome="Produto Escopo", ativo=True),
+                user=user_ctx,
+            )
+        )
+
+    assert "central_id não confere" in str(exc.value.detail or "")
+
+    resp = asyncio.run(
+        create_produto(
+            ProdutoCreate(central_id="CENT1", codigo="P-ESC-002", nome="Produto Ok", ativo=True),
+            user=user_ctx,
+        )
+    )
+    assert resp.get("id")

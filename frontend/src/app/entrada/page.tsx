@@ -32,6 +32,26 @@ interface ProdutoResumo {
   categoria?: string;
 }
 
+const normalizeId = (value: unknown) => {
+  if (value == null) return '';
+  const s = String(value).trim();
+  const m = s.match(/^ObjectId\(["']([0-9a-fA-F]{24})["']\)$/);
+  return (m?.[1] || s).trim();
+};
+
+const idCandidates = (value: unknown) => {
+  const s = normalizeId(value);
+  if (!s) return [];
+  const out = [s];
+  if (/^\d+$/.test(s)) out.push(String(parseInt(s, 10)));
+  return Array.from(new Set(out));
+};
+
+const idEq = (a: unknown, b: unknown) => {
+  const as = new Set(idCandidates(a));
+  return idCandidates(b).some(x => as.has(x));
+};
+
 export default function NovaEntradaPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
@@ -63,6 +83,14 @@ export default function NovaEntradaPage() {
     lote: '',
     data_validade: ''
   });
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user) return;
+    if (user.role === 'operador_setor') {
+      router.replace('/setor');
+    }
+  }, [authLoading, router, user]);
 
   useEffect(() => {
     if (!produtoQuery.trim()) {
@@ -111,6 +139,45 @@ export default function NovaEntradaPage() {
       setError('Erro ao carregar hierarquia');
     });
   }, [authLoading, user]);
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user) return;
+    if (user.role !== 'resp_sub_almox') return;
+    if (!user.scope_id) return;
+
+    setFormData(prev => {
+      let changed = false;
+      const next = { ...prev };
+
+      if (!next.destino_is_sub) {
+        next.destino_is_sub = true;
+        changed = true;
+      }
+      const sub = subAlmoxarifados.find(s => idEq(s.id, user.scope_id));
+      const subId = sub?.id || user.scope_id || '';
+      const almoxIdRaw = sub?.almoxarifado_id || '';
+      const almox = almoxarifados.find(a => idEq(a.id, almoxIdRaw));
+      const almoxId = almox?.id || almoxIdRaw;
+      const centralId = almox?.central_id || user.central_id || (centrais.length === 1 ? centrais[0]?.id : '');
+
+      if (subId && !next.sub_almoxarifado_id) {
+        next.sub_almoxarifado_id = subId;
+        changed = true;
+      }
+
+      if (centralId && !next.central_id) {
+        next.central_id = centralId;
+        changed = true;
+      }
+      if (almoxId && !next.almoxarifado_id) {
+        next.almoxarifado_id = almoxId;
+        changed = true;
+      }
+
+      return changed ? next : prev;
+    });
+  }, [almoxarifados, authLoading, centrais, subAlmoxarifados, user]);
 
   const almoxOptions = useMemo(() => {
     if (!formData.central_id) return [];
@@ -298,6 +365,7 @@ export default function NovaEntradaPage() {
                   value={formData.central_id}
                   onChange={e => setFormData({ ...formData, central_id: e.target.value, almoxarifado_id: '', sub_almoxarifado_id: '' })}
                   required
+                  disabled={user?.role === 'resp_sub_almox'}
                 >
                   <option value="">Central...</option>
                   {centrais.map(c => (
@@ -310,7 +378,7 @@ export default function NovaEntradaPage() {
                   value={formData.almoxarifado_id}
                   onChange={e => setFormData({ ...formData, almoxarifado_id: e.target.value, sub_almoxarifado_id: '' })}
                   required
-                  disabled={!formData.central_id}
+                  disabled={!formData.central_id || user?.role === 'resp_sub_almox'}
                 >
                   <option value="">Almoxarifado...</option>
                   {almoxOptions.map(a => (
@@ -323,7 +391,7 @@ export default function NovaEntradaPage() {
                     type="checkbox"
                     checked={formData.destino_is_sub}
                     onChange={e => setFormData({ ...formData, destino_is_sub: e.target.checked, sub_almoxarifado_id: '' })}
-                    disabled={!formData.almoxarifado_id}
+                    disabled={!formData.almoxarifado_id || user?.role === 'resp_sub_almox'}
                   />
                   Entrada direto no Sub-Almoxarifado
                 </label>
@@ -334,7 +402,7 @@ export default function NovaEntradaPage() {
                     value={formData.sub_almoxarifado_id}
                     onChange={e => setFormData({ ...formData, sub_almoxarifado_id: e.target.value })}
                     required
-                    disabled={!formData.almoxarifado_id}
+                    disabled={!formData.almoxarifado_id || user?.role === 'resp_sub_almox'}
                   >
                     <option value="">Sub-Almoxarifado...</option>
                     {subOptions.map(s => (
@@ -407,7 +475,7 @@ export default function NovaEntradaPage() {
             <button 
               type="submit" 
               disabled={loading}
-              className="soft-btn flex items-center gap-2 px-6 py-2 bg-green-600 text-white border-green-500/30 hover:bg-green-700 disabled:opacity-50"
+              className="soft-btn-primary flex items-center gap-2 px-6 py-2 disabled:opacity-50"
             >
               {loading ? 'Salvando...' : <><Save className="h-4 w-4" /> Registrar Entrada</>}
             </button>

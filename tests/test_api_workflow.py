@@ -933,3 +933,43 @@ def test_fastapi_create_produto_resp_sub_almox_respeita_escopo_da_central():
         )
     )
     assert resp.get("id")
+
+
+def test_fastapi_update_produto_atualiza_unidade_medida():
+    import asyncio
+
+    import mongomock
+    from bson import ObjectId
+
+    from fastapi_app.main import MONGO_DB
+    from fastapi_app.main import ProdutoUpdate
+    from fastapi_app.main import _AsyncMockDatabase
+    from fastapi_app.main import db as fastapi_db
+    from fastapi_app.main import get_produto_detalhes
+    from fastapi_app.main import update_produto
+
+    fastapi_db.db = _AsyncMockDatabase(mongomock.MongoClient()[MONGO_DB])
+    fastapi_db.client = None
+    fastapi_db.is_mock = True
+
+    produto_oid = ObjectId()
+
+    async def _seed():
+        await fastapi_db.db.usuarios.insert_one({"_id": ObjectId(), "role": "super_admin", "ativo": True})
+        await fastapi_db.db.produtos.insert_one(
+            {"_id": produto_oid, "nome": "Produto Teste", "codigo": "P-TESTE", "unidade_medida": "UN"}
+        )
+
+    asyncio.run(_seed())
+
+    asyncio.run(update_produto(str(produto_oid), ProdutoUpdate(nome="Produto Teste", codigo="P-TESTE", unidade="KG")))
+
+    async def _read_prod():
+        return await fastapi_db.db.produtos.find_one({"_id": produto_oid})
+
+    prod_doc = asyncio.run(_read_prod()) or {}
+    assert prod_doc.get("unidade_medida") == "KG"
+
+    user_ctx = {"id": "any", "role": "super_admin", "scope_id": None}
+    prod_resp = asyncio.run(get_produto_detalhes(str(produto_oid), user=user_ctx))
+    assert prod_resp.get("unidade") == "KG"

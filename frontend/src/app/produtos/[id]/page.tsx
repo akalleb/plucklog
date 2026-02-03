@@ -92,6 +92,39 @@ export default function ProdutoDetalhesPage() {
     });
   };
 
+  const allowsDecimalQuantity = (unidade?: string) => {
+    const u = String(unidade || '').toUpperCase().trim();
+    return u === 'KG' || u === 'L' || u === 'MT';
+  };
+
+  const formatQuantidade = (value: number, unidade?: string) => {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return '-';
+    if (allowsDecimalQuantity(unidade)) {
+      return n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    return Math.round(n).toLocaleString('pt-BR');
+  };
+
+  const formatQuantidadeForInput = (value: number, unidade?: string) => {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return '';
+    if (allowsDecimalQuantity(unidade)) return n.toFixed(2).replace('.', ',');
+    return String(Math.round(n));
+  };
+
+  const parseQuantidade = (raw: string) => {
+    const s = String(raw || '').trim();
+    if (!s) return null;
+    const normalized =
+      s.includes(',') && s.includes('.')
+        ? s.replace(/\./g, '').replace(',', '.')
+        : s.replace(',', '.');
+    const n = Number(normalized);
+    if (!Number.isFinite(n)) return null;
+    return n;
+  };
+
   useEffect(() => {
     if (authLoading) return;
     if (!params.id) return;
@@ -122,7 +155,9 @@ export default function ProdutoDetalhesPage() {
     const numero = String(lote.numero || '');
     const validade = lote.validade ? new Date(lote.validade).toISOString().slice(0, 10) : '';
     const quantidade =
-      typeof lote.quantidade === 'number' && Number.isFinite(lote.quantidade) ? String(Math.round(lote.quantidade)) : '';
+      typeof lote.quantidade === 'number' && Number.isFinite(lote.quantidade)
+        ? formatQuantidadeForInput(lote.quantidade, produto?.unidade)
+        : '';
     const preco_unitario =
       typeof lote.preco_unitario === 'number' && Number.isFinite(lote.preco_unitario) ? String(lote.preco_unitario) : '';
     const next = { id: lote.id, numero, validade, quantidade, preco_unitario, local_nome: lote.local_nome, local_tipo: lote.local_tipo };
@@ -147,8 +182,12 @@ export default function ProdutoDetalhesPage() {
       payload.data_validade = editingLote.validade ? new Date(`${editingLote.validade}T00:00:00`).toISOString() : null;
 
       if (editingLote.quantidade.trim() !== '') {
-        const qtd = Number(editingLote.quantidade);
-        if (!Number.isInteger(qtd)) {
+        const qtd = parseQuantidade(editingLote.quantidade);
+        if (qtd === null || qtd < 0) {
+          alert('Quantidade inválida');
+          return;
+        }
+        if (!allowsDecimalQuantity(produto?.unidade) && !Number.isInteger(qtd)) {
           alert('Informe uma quantidade inteira');
           return;
         }
@@ -316,7 +355,7 @@ export default function ProdutoDetalhesPage() {
           </div>
           <div className="bg-blue-50 border border-blue-100 p-6 rounded-xl text-center min-w-[150px]">
             <span className="block text-sm text-blue-600 font-medium mb-1">Estoque Total</span>
-            <span className="block text-4xl font-bold text-blue-900">{Math.round(produto.estoque_total).toLocaleString('pt-BR')}</span>
+            <span className="block text-4xl font-bold text-blue-900">{formatQuantidade(produto.estoque_total, produto.unidade)}</span>
           </div>
         </div>
 
@@ -356,7 +395,7 @@ export default function ProdutoDetalhesPage() {
                       <span className="text-xs text-gray-500 capitalize">{loc.local_tipo}</span>
                     </div>
                   </div>
-                  <span className="font-mono font-bold text-gray-700">{Math.round(loc.quantidade)}</span>
+                  <span className="font-mono font-bold text-gray-700">{formatQuantidade(loc.quantidade, produto.unidade)}</span>
                 </div>
               ))}
             </div>
@@ -392,7 +431,7 @@ export default function ProdutoDetalhesPage() {
                    <span className={`text-sm font-bold ${
                       hist.tipo === 'saida' ? 'text-red-600' : 'text-green-600'
                    }`}>
-                      {hist.tipo === 'saida' ? '-' : '+'}{Math.round(hist.quantidade)}
+                      {hist.tipo === 'saida' ? '-' : '+'}{formatQuantidade(hist.quantidade, produto.unidade)}
                    </span>
                 </div>
               ))}
@@ -424,7 +463,7 @@ export default function ProdutoDetalhesPage() {
                     <tr key={idx} className="hover:bg-gray-50">
                       <td className="px-4 py-2 font-medium text-gray-900">{lote.numero}</td>
                       <td className="px-4 py-2 text-gray-600">{formatDate(lote.validade)}</td>
-                      <td className="px-4 py-2 text-gray-900">{Math.round(lote.quantidade)}</td>
+                      <td className="px-4 py-2 text-gray-900">{formatQuantidade(lote.quantidade, produto.unidade)}</td>
                       <td className="px-4 py-2 text-gray-900">
                         {typeof lote.preco_unitario === 'number' && Number.isFinite(lote.preco_unitario)
                           ? lote.preco_unitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -492,9 +531,8 @@ export default function ProdutoDetalhesPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Quantidade</label>
                 <input
-                  type="number"
-                  min="0"
-                  step="1"
+                  type="text"
+                  inputMode="decimal"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                   value={editingLote.quantidade || ''}
                   onChange={e => setEditingLote({ ...editingLote, quantidade: e.target.value })}

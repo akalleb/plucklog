@@ -139,3 +139,10 @@ almox-sms/
 ## Licença
 
 Este projeto está sob a licença MIT. Veja o arquivo `LICENSE` para mais detalhes.
+
+\
+python -m uvicorn fastapi_app.main:app --reload --host 0.0.0.0 --port 8000
+
+cd frontend
+npm install
+npm run dev -- -p 3001

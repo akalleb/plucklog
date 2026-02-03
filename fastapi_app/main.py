@@ -519,7 +519,7 @@ async def search_produtos(
         else:
             base_query = {"central_id": {"$in": allowed}}
 
-    projection = {"nome": 1, "codigo": 1, "unidade_medida": 1, "categoria": 1, "id": 1, "updated_at": 1}
+    projection = {"nome": 1, "codigo": 1, "unidade_medida": 1, "unidade": 1, "categoria": 1, "id": 1, "updated_at": 1}
     seen: set[str] = set()
     results: List[Dict[str, Any]] = []
     skip = (page - 1) * limit
@@ -545,7 +545,7 @@ async def search_produtos(
                 "id": pid,
                 "nome": p.get("nome"),
                 "codigo": p.get("codigo"),
-                "unidade": p.get("unidade_medida"),
+                "unidade": p.get("unidade_medida") or p.get("unidade"),
                 "categoria": p.get("categoria"),
             })
             if len(results) >= limit:
@@ -808,7 +808,7 @@ async def get_produto_detalhes(produto_id: str, user: Dict[str, Any] = Depends(g
         "nome": produto.get("nome"),
         "codigo": produto.get("codigo"),
         "descricao": produto.get("descricao"),
-        "unidade": produto.get("unidade_medida"),
+        "unidade": produto.get("unidade_medida") or produto.get("unidade"),
         "categoria": cat_nome,
         "observacao": produto.get("observacoes"),
         "estoque_total": total,
@@ -3574,6 +3574,8 @@ async def create_produto(prod: ProdutoCreate, user: Dict[str, Any] = Depends(get
     doc["central_id"] = _public_id(central) or _norm_id(central_id)
     doc["created_at"] = _now_utc()
     doc["observacoes"] = doc.pop("observacao", None) # Padronizar
+    if doc.get("unidade") is not None and doc.get("unidade_medida") is None:
+        doc["unidade_medida"] = doc.get("unidade")
     
     # Resolver categoria
     if prod.categoria_id:
@@ -3615,6 +3617,8 @@ async def update_produto(produto_id: str, prod: ProdutoUpdate):
 
     update_data = prod.dict(exclude_unset=True, exclude={"categoria_nome", "codigo"}) # Não permitir mudar código facilmente
     update_data["observacoes"] = update_data.pop("observacao", None)
+    if update_data.get("unidade") is not None and update_data.get("unidade_medida") is None:
+        update_data["unidade_medida"] = update_data.get("unidade")
 
     if "central_id" in update_data and update_data.get("central_id"):
         central = await _find_one_by_id("centrais", str(update_data.get("central_id")))

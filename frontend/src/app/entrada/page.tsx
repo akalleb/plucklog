@@ -189,6 +189,11 @@ export default function NovaEntradaPage() {
     return subAlmoxarifados.filter(s => s.almoxarifado_id === formData.almoxarifado_id);
   }, [subAlmoxarifados, formData.almoxarifado_id]);
 
+  const allowDecimalQuantidade = useMemo(() => {
+    const u = (produtoSelected?.unidade || '').trim().toUpperCase();
+    return u === 'KG' || u === 'L' || u === 'MT';
+  }, [produtoSelected?.unidade]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -208,7 +213,8 @@ export default function NovaEntradaPage() {
 
       const dataValidade = new Date(`${formData.data_validade}T00:00:00`).toISOString();
       const quantidade = Number(formData.quantidade);
-      if (!quantidade || quantidade <= 0 || !Number.isInteger(quantidade)) throw new Error('Quantidade inválida');
+      if (!Number.isFinite(quantidade) || quantidade <= 0) throw new Error('Quantidade inválida');
+      if (!allowDecimalQuantidade && !Number.isInteger(quantidade)) throw new Error('Quantidade inválida');
 
       const payload = {
         produto_id: produtoSelected.id,
@@ -336,8 +342,8 @@ export default function NovaEntradaPage() {
               <input 
                 type="number" 
                 required
-                min="1"
-                step="1"
+                min={allowDecimalQuantidade ? '0.01' : '1'}
+                step={allowDecimalQuantidade ? '0.01' : '1'}
                 className="soft-input w-full px-4 py-2 outline-none"
                 value={formData.quantidade}
                 onChange={e => setFormData({...formData, quantidade: e.target.value})}

@@ -161,6 +161,23 @@ def _norm_id(value: Any) -> Optional[str]:
         return None
     return str(value)
 
+def _normalize_role(value: Any) -> str:
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    normalized = raw.lower().replace(" ", "_").replace("-", "_")
+    synonyms = {
+        "gerente_almoxarifado": "gerente_almox",
+        "gerente_do_almoxarifado": "gerente_almox",
+        "responsavel_sub_almox": "resp_sub_almox",
+        "responsavel_subalmox": "resp_sub_almox",
+        "resp_subalmox": "resp_sub_almox",
+        "resp_sub_almoxarifado": "resp_sub_almox",
+        "operador_de_setor": "operador_setor",
+        "admin": "admin_central",
+    }
+    return synonyms.get(normalized, normalized)
+
 def _now_utc() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -264,18 +281,22 @@ async def get_current_user(x_user_id: Optional[str] = Header(default=None, alias
     u = await _find_one_by_id("usuarios", x_user_id)
     if not u or not u.get("ativo", True):
         raise HTTPException(status_code=401, detail="Usuário não autenticado")
+    role = _normalize_role(u.get("role") or u.get("nivel_acesso") or "operador")
     return {
         "id": str(u.get("_id")),
-        "role": u.get("role") or "operador",
+        "role": role,
         "scope_id": _norm_id(u.get("scope_id")),
     }
 
 def _require_roles(allowed: List[str]):
     async def _dep(user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
-        if user.get("role") == "super_admin":
+        role = _normalize_role(user.get("role"))
+        if role == "super_admin":
             return user
-        if user.get("role") not in allowed:
+        allowed_norm = {_normalize_role(a) for a in allowed}
+        if role not in allowed_norm:
             raise HTTPException(status_code=403, detail="Acesso negado")
+        user["role"] = role
         return user
     return _dep
 

@@ -1,0 +1,131 @@
+@@include("partials/main.html")
+
+<head>
+
+    @@include("partials/title-meta.html", {"title": "Context-menu"})
+
+    @@include("partials/head-css.html")
+
+    <!-- contextMenu css -->
+    <link rel="stylesheet" href="assets/libs/jquery-contextmenu-js/jquery.contextMenu.min.css">
+</head>
+
+@@include("partials/body.html")
+
+<!-- Begin page -->
+<div id="layout-wrapper">
+
+    @@include("partials/menu.html")
+
+    <!-- ============================================================== -->
+    <!-- Start right Content here -->
+    <!-- ============================================================== -->
+    <div class="main-content">
+
+        <div class="page-content">
+            <div class="container-fluid">
+
+                @@include("partials/page-title.html", {"pagetitle": "Elements", "title": "Context-menu"})
+
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header card-header-bordered">
+                                <h3 class="card-title">Context menu</h3>
+                            </div>
+                            <div class="card-body">
+                                <p class="text-muted"><strong>JQuery Context Menu</strong> was designed for web applications in need of menus on a possibly large amount of objects. Check more details by visiting <a href="http://swisnl.github.io/jQuery-contextMenu" target="_blank">the documentation</a>.</p>
+                                <hr>
+                                <div class="d-grid gap-3">
+                                    <div class="row">
+                                        <div class="col-sm-4 col-lg-2">
+                                            <label class="col-form-label">Basic setup</label>
+                                        </div>
+                                        <div class="col-sm-8 col-lg-10">
+                                            <button class="btn btn-primary" id="context-menu-1">Right click me</button>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-sm-4 col-lg-2">
+                                            <label class="col-form-label">Custom icon</label>
+                                        </div>
+                                        <div class="col-sm-8 col-lg-10">
+                                            <div class="mb-2"><button class="btn btn-primary" id="context-menu-2">Right click me</button></div>
+                                            <p class="text-muted mb-0">You can customize the icon with fontawesome</p>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-sm-4 col-lg-2">
+                                            <label class="col-form-label">Accesskeys</label>
+                                        </div>
+                                        <div class="col-sm-8 col-lg-10">
+                                            <button class="btn btn-primary" id="context-menu-3">Right click me</button>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-sm-4 col-lg-2">
+                                            <label class="col-form-label">Disabled command</label>
+                                        </div>
+                                        <div class="col-sm-8 col-lg-10">
+                                            <button class="btn btn-primary" id="context-menu-4">Right click me</button>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-sm-4 col-lg-2">
+                                            <label class="col-form-label">Keeping context menu open</label>
+                                        </div>
+                                        <div class="col-sm-8 col-lg-10">
+                                            <button class="btn btn-primary" id="context-menu-5">Right click me</button>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-sm-4 col-lg-2">
+                                            <label class="col-form-label">Submenu</label>
+                                        </div>
+                                        <div class="col-sm-8 col-lg-10">
+                                            <button class="btn btn-primary" id="context-menu-6">Right click me</button>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-sm-4 col-lg-2">
+                                            <label class="col-form-label">Custom triggers</label>
+                                        </div>
+                                        <div class="col-sm-8 col-lg-10">
+                                            <div class="mb-2"><button class="btn btn-primary" id="context-menu-7">Click</button> <button class="btn btn-primary" id="context-menu-8">Hover</button></div>
+                                            <p class="text-muted mb-0">Reset the trigger by setting <code>trigger</code> property</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- end row -->
+            </div>
+            <!-- container-fluid -->
+        </div>
+        <!-- End Page-content -->
+
+        @@include("partials/footer.html")
+
+    </div>
+    <!-- end main content-->
+
+</div>
+<!-- END layout-wrapper -->
+
+@@include("partials/right-sidebar.html")
+
+@@include("partials/vendor-scripts.html")
+
+<!-- contextMenu js-->
+<script src="assets/libs/jquery-contextmenu-js/jquery.contextMenu.min.js"></script>
+
+<!-- contextMenu init js-->
+<script src="assets/js/pages/contextMenu.init.js"></script>
+
+<script src="assets/js/app.js"></script>
+
+</body>
+
+</html>

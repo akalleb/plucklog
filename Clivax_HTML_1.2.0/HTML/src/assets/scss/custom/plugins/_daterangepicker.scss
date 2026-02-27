@@ -1,0 +1,40 @@
+// DateRangepicker
+
+.daterangepicker {
+    background-color: var(--#{$prefix}white);
+    border-color: var(--#{$prefix}border-color);
+    .calendar-table {
+        background-color: var(--#{$prefix}white);
+        border-color: var(--#{$prefix}border-color);
+    }
+    td {
+        &.off {
+            background-color: var(--#{$prefix}white);
+        }
+        &.active {
+            background-color: $primary;
+            &:hover {
+                background-color: $primary;
+            }
+        }
+
+        &.in-range {
+            background-color: rgba($primary, 0.1);
+            color: var(--#{$prefix}body-color);
+            &:hover {
+                background-color: rgba($primary, 0.15);
+            }
+        }
+    }
+    select {
+        &.hourselect,
+        &.minuteselect,
+        &.ampmselect {
+            background: var(--#{$prefix}white);
+            border-color: var(--#{$prefix}border-color);
+        }
+    }
+    .drp-buttons {
+        border-color: var(--#{$prefix}border-color);
+    }
+}

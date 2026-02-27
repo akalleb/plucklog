@@ -1,0 +1,54 @@
+
+// authentication.scss
+
+
+.authentication-bg {
+    background-image: url("../images/auth-bg.jpg");
+    height: 100vh;
+    background-size: cover;
+    background-position: center;
+    .bg-overlay {
+        background-color: #292626;
+    }
+}
+
+.authentication-page-content {
+    height: 100vh;
+    display: flex;
+}
+
+.auth-form-group-custom {
+    position: relative;
+    .form-control {
+        height: 40px;
+    }
+}
+
+[data-bs-theme="dark"]{
+    .logo-light{
+        display: inline-block;
+    }
+    .logo-dark{
+        display: none;
+    }
+}
+
+.signin-other-title {
+    &:after {
+        content: "";
+        position: absolute;
+        width: 100%;
+        height: 1px;
+        left: 0;
+        right: 0;
+        border-top: 1px dashed var(--#{$prefix}border-color-translucent);
+        top: 10px;
+    }
+    .title {
+        display: inline-block;
+        position: relative;
+        z-index: 9;
+        background-color: var(--#{$prefix}white);
+        padding: 2px 16px;
+    }
+}

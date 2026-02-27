@@ -1,0 +1,14 @@
+
+// Card
+
+.portlet {
+    .portlet-title {
+        font-size: $font-size-base !important;
+    }
+    
+    .portlet-header{
+        background-color: var(--#{$prefix}secondary-bg) !important;
+        display: flex;
+        align-items: center;
+    }
+}

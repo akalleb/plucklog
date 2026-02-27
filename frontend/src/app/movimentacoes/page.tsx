@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { ArrowLeftRight, Search, Calendar, Download } from 'lucide-react';
-import { apiUrl } from '@/lib/api';
+import { apiUrl, apiFetch } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 
@@ -68,11 +68,11 @@ export default function MovimentacoesPage() {
     }
     setLoading(true);
     try {
-      let url = apiUrl(`/api/movimentacoes?page=${page}&per_page=15`);
-      if (filterTipo) url += `&tipo=${filterTipo}`;
-      if (searchTerm) url += `&produto=${searchTerm}`;
+      const qs = new URLSearchParams({ page: String(page), per_page: '15' });
+      if (filterTipo) qs.set('tipo', filterTipo);
+      if (searchTerm) qs.set('produto', searchTerm);
       
-      const res = await fetch(url, { headers: { 'X-User-Id': user.id } });
+      const res = await apiFetch(`/api/movimentacoes?${qs.toString()}`);
       if (!res.ok) throw new Error('Erro ao carregar');
       const json = await res.json();
       setData(json);

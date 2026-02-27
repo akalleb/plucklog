@@ -1,0 +1,145 @@
+
+// avatar
+
+@each $color, $value in $theme-colors {
+  .avatar-#{$color} {
+    background-color: $value !important;
+    color: $white !important;
+  }
+  .avatar-label-#{$color} {
+    background-color: rgba(($value), 0.15) !important;
+    color: $value !important;
+  }
+}
+.avatar-2xs {
+  height: 1.5rem;
+  width: 1.5rem;
+  font-size: $font-size-base;
+}
+
+.avatar-xs {
+  height: 2.5rem;
+  width: 2.5rem;
+  font-size: 1rem;
+}
+
+.avatar-sm {
+  height: 3rem;
+  width: 3rem;
+  font-size: 1.5rem;
+}
+
+.avatar-md {
+  height: 4.5rem;
+  width: 4.5rem;
+  font-size: 2.5rem;
+}
+
+.avatar-lg {
+  height: 6rem;
+  width: 6rem;
+  font-size: 3rem;
+}
+
+.avatar-xl {
+  height: 7.5rem;
+  width: 7.5rem;
+  font-size: 3.5rem;
+}
+
+.avatar {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--#{$prefix}body-color);
+  background: var(--#{$prefix}body-bg);
+  border-radius: $border-radius;
+}
+
+.avatar-display {
+  display: block;
+  color: inherit;
+  font-weight: $font-weight-semibold;
+  overflow: hidden;
+}
+
+.avatar-circle {
+  border-radius: 50%;
+}
+
+// avatar group
+.avatar-group {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  > .avatar {
+    margin: 0;
+    font-size: 1rem;
+    border: 2px solid var(--#{$prefix}white);
+    width: 3rem;
+    height: 3rem;
+  }
+  > .avatar + .avatar {
+    margin-left: -0.75rem;
+  }
+}
+.avatar-group-lg {
+  > .avatar {
+    font-size: 1.5rem;
+    width: 4rem;
+    height: 4rem;
+  }
+}
+.avatar-group-sm {
+  > .avatar {
+    font-size: $font-size-base;
+    width: 2rem;
+    height: 2rem;
+  }
+}
+
+.avatar-addon {
+  z-index: 1;
+  position: absolute;
+}
+
+.avatar-addon-top {
+  top: calc(-1 * 0.55rem);
+  left: calc(-1 * 0.55rem);
+}
+.avatar-addon-bottom {
+  bottom: calc(-1 * 0.7rem);
+  right: calc(-1 * 0.45rem);
+}
+
+.avatar-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.2rem;
+  height: 1.2rem;
+  color: var(--#{$prefix}body-color);
+  background: var(--#{$prefix}body-bg);
+  border-radius: 50%;
+}
+
+.avatar-badge,
+.avatar-icon {
+  position: relative;
+  border: 2px solid var(--#{$prefix}white);
+}
+
+.avatar-badge{
+  line-height: 0.5 !important;
+  padding-left: 0.35rem !important;
+  padding-right: 0.35rem !important;
+}
+.avatar-icon > i {
+  font-size: 0.5rem;
+}
+
+.avatar-light{
+  color: var(--#{$prefix}body-color) !important;
+  background-color: var(--#{$prefix}light) !important;
+}

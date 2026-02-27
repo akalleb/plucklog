@@ -1,0 +1,129 @@
+@@include("partials/main.html")
+
+<head>
+
+    @@include("partials/title-meta.html", {"title": "Form Inputmask"})
+
+    @@include("partials/head-css.html")
+
+</head>
+
+@@include("partials/body.html")
+
+<!-- Begin page -->
+<div id="layout-wrapper">
+
+    @@include("partials/menu.html")
+
+    <!-- ============================================================== -->
+    <!-- Start right Content here -->
+    <!-- ============================================================== -->
+    <div class="main-content">
+
+        <div class="page-content">
+            <div class="container-fluid">
+
+                @@include("partials/page-title.html", {"pagetitle": "Forms", "title": "Form Inputmask"})
+
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header card-header-bordered">
+                                <h3 class="card-title">Input mask</h3>
+                            </div>
+                            <div class="card-body">
+                                <p class="text-muted">
+                                    <strong>JQuery Inputmask</strong> is a jQuery plugin which create an input mask. An input mask helps the user with the input by ensuring a predefined format. This can be useful for dates,
+                                    numerics, phone numbers, etc. Look <a href="http://robinherbots.github.io/Inputmask" target="_blank">plugin's page</a> for more references.
+                                </p>
+                                <div class="d-grid gap-3">
+                                    <div class="row">
+                                        <div class="col-sm-4 col-lg-2">
+                                            <label class="col-form-label text-sm-end">Date format</label>
+                                        </div>
+                                        <div class="col-sm-5 col-lg-6">
+                                            <input type="text" class="form-control" id="inputmask-1" />
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-sm-4 col-lg-2">
+                                            <label class="col-form-label text-sm-end">Phone number</label>
+                                        </div>
+                                        <div class="col-sm-5 col-lg-6">
+                                            <input type="text" class="form-control" id="inputmask-2" />
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-sm-4 col-lg-2">
+                                            <label class="col-form-label text-sm-end">Expty format</label>
+                                        </div>
+                                        <div class="col-sm-5 col-lg-6">
+                                            <input type="text" class="form-control" id="inputmask-3" />
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-sm-4 col-lg-2">
+                                            <label class="col-form-label text-sm-end">Repeating mask</label>
+                                        </div>
+                                        <div class="col-sm-5 col-lg-6">
+                                            <input type="text" class="form-control" id="inputmask-4" />
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-sm-4 col-lg-2">
+                                            <label class="col-form-label text-sm-end">Currency</label>
+                                        </div>
+                                        <div class="col-sm-5 col-lg-6">
+                                            <input type="text" class="form-control" id="inputmask-5" />
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-sm-4 col-lg-2">
+                                            <label class="col-form-label text-sm-end">IP address</label>
+                                        </div>
+                                        <div class="col-sm-5 col-lg-6">
+                                            <input type="text" class="form-control" id="inputmask-6" />
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-sm-4 col-lg-2">
+                                            <label class="col-form-label text-sm-end">Email address</label>
+                                        </div>
+                                        <div class="col-sm-5 col-lg-6">
+                                            <input type="text" class="form-control" id="inputmask-7" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- end row -->
+
+            </div> <!-- container-fluid -->
+        </div>
+        <!-- End Page-content -->
+
+        @@include("partials/footer.html")
+
+    </div>
+    <!-- end main content-->
+
+</div>
+<!-- END layout-wrapper -->
+
+@@include("partials/right-sidebar.html")
+
+@@include("partials/vendor-scripts.html")
+
+<!-- form mask -->
+<script src="assets/libs/inputmask/jquery.inputmask.min.js"></script>
+
+<!-- form mask init -->
+<script src="assets/js/pages/form-mask.init.js"></script>
+
+<script src="assets/js/app.js"></script>
+
+</body>
+
+</html>

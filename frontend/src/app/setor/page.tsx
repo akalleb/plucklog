@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Package, ArrowLeftRight, ShoppingCart } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { InlineLoading } from '@/components/ui/Page';
-import { apiUrl } from '@/lib/api';
+import { apiUrl, apiFetch } from '@/lib/api';
 
 type SetorInfo = { id: string; nome: string };
 type EstoqueItem = { produto_id: string; produto_nome?: string; produto_codigo?: string; quantidade_disponivel: number };
@@ -37,16 +37,15 @@ export default function SetorHomePage() {
       });
       return;
     }
-    const headers = { 'X-User-Id': user.id };
     Promise.resolve().then(() => {
       setLoading(true);
       setError('');
     });
     Promise.all([
-      fetch(apiUrl(`/api/setores/${encodeURIComponent(user.scope_id)}`), { headers }).then(r => (r.ok ? r.json() : null)),
-      fetch(apiUrl(`/api/estoque/setor/${encodeURIComponent(user.scope_id)}`), { headers }).then(r => (r.ok ? r.json() : { items: [] })),
-      fetch(apiUrl('/api/demandas?mine=true&per_page=100'), { headers }).then(r => (r.ok ? r.json() : { items: [] })),
-      fetch(apiUrl(`/api/movimentacoes/setor/${encodeURIComponent(user.scope_id)}?per_page=12`), { headers }).then(r =>
+      apiFetch(`/api/setores/${encodeURIComponent(user.scope_id)}`).then(r => (r.ok ? r.json() : null)),
+      apiFetch(`/api/estoque/setor/${encodeURIComponent(user.scope_id)}`).then(r => (r.ok ? r.json() : { items: [] })),
+      apiFetch('/api/demandas?mine=true&per_page=100').then(r => (r.ok ? r.json() : { items: [] })),
+      apiFetch(`/api/movimentacoes/setor/${encodeURIComponent(user.scope_id)}?per_page=12`).then(r =>
         r.ok ? r.json() : { items: [] }
       ),
     ])

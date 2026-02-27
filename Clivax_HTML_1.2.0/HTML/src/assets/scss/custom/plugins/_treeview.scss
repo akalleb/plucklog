@@ -1,0 +1,22 @@
+// Treeview.scss
+
+.jstree-ellipsis {
+    .jstree-anchor {
+        width: auto !important;
+        display: inline-block !important;
+    }
+}
+
+.jstree-default {
+    .jstree-clicked {
+        background-color: $primary !important;
+        color: $white !important;
+        border-radius: $border-radius !important;
+    }
+
+    .jstree-wholerow-clicked {
+        background: $primary !important;
+        color: $white !important;
+        border-radius: $border-radius !important;
+    }
+}

@@ -1,0 +1,32 @@
+
+@if $enable-dark-mode {
+  @include color-mode(dark, true) {
+    color-scheme: dark;
+
+    // scss-docs-start root-dark-mode-vars
+    --#{$prefix}white: #{$white-dark};
+    --#{$prefix}light: #{$light-dark};
+    --#{$prefix}light-rgb: #{to-rgb($light-dark)};
+    --#{$prefix}light-text-emphasis: #{$light-text-emphasis-dark};
+    --#{$prefix}light-bg-subtle: #{$light-bg-subtle-dark};
+    --#{$prefix}light-border-subtle: #{$light-border-subtle-dark};
+
+    --#{$prefix}dark: #{$dark-dark};
+    --#{$prefix}box-shadow-sm: #{$box-shadow-sm-dark};
+    --#{$prefix}box-shadow: #{$box-shadow-dark};
+    --#{$prefix}box-shadow-lg: #{$box-shadow-lg-dark};
+    --#{$prefix}box-shadow-inset: #{$box-shadow-inset-dark};
+
+    --#{$prefix}dark-text-emphasis: #{$dark-text-emphasis-dark};
+    --#{$prefix}dark-bg-subtle: #{$dark-bg-subtle-dark};
+    --#{$prefix}dark-border-subtle: #{$dark-border-subtle-dark};
+
+    .logo-light {
+      display: block;
+    }
+
+    .logo-dark {
+      display: none;
+    }
+  }
+}

@@ -1,0 +1,223 @@
+// datatable.scss
+
+.dataTables_wrapper {
+  &.container-fluid {
+    padding: 0;
+  }
+}
+
+div.dataTables_wrapper {
+  div.dataTables_filter {
+    text-align: right;
+
+    @media (max-width: 767px) {
+      text-align: center !important;
+      margin-bottom: 0.5rem;
+    }
+    input {
+      margin-left: 0.5em;
+      margin-right: 0;
+    }
+  }
+  .dataTables_length {
+    @media (max-width: 767px) {
+      text-align: center !important;
+      margin-bottom: 0.5rem;
+    }
+  }
+}
+
+.datatable {
+  td {
+    &:focus {
+      outline: none;
+    }
+  }
+}
+
+.dataTables_paginate {
+  ul {
+    text-align: right;
+  }
+}
+div.table-responsive > div.dataTables_wrapper > div.row > div[class^="col-"] {
+  &:first-child {
+    padding-left: 0;
+  }
+
+  &:last-child {
+    padding-right: 0;
+  }
+}
+
+table.dataTable {
+  border-collapse: collapse !important;
+  margin-bottom: 15px !important;
+
+  .dataTables_info {
+    font-weight: $font-weight-semibold;
+  }
+}
+
+// Responsive data table
+table.dataTable.dtr-inline.collapsed {
+  > tbody {
+    > tr[role="row"] {
+      > td,
+      > th {
+        &:first-child {
+          &:before {
+            box-shadow: $box-shadow-lg;
+            background-color: $success;
+            bottom: auto;
+          }
+        }
+      }
+    }
+
+    > tr.parent {
+      > td,
+      > th {
+        &:first-child {
+          &:before {
+            background-color: $danger;
+          }
+        }
+      }
+    }
+  }
+}
+
+// Data Table copy button
+div.dt-button-info {
+  background-color: $primary;
+  border: none;
+  color: $white;
+  box-shadow: none;
+  border-radius: 3px;
+  text-align: center;
+  z-index: 21;
+
+  h2 {
+    border-bottom: none;
+    background-color: rgba($white, 0.2);
+    color: $white;
+  }
+}
+
+@include media-breakpoint-down(md) {
+  li.paginate_button.previous,
+  li.paginate_button.next {
+    display: inline-block;
+    font-size: 1.5rem;
+  }
+
+  li.paginate_button {
+    display: none;
+  }
+
+  .dataTables_paginate {
+    ul {
+      text-align: center;
+      display: block;
+      margin: $spacer 0 0 !important;
+    }
+  }
+
+  div.dt-buttons {
+    display: inline-table;
+    margin-bottom: $spacer;
+  }
+}
+
+// Active status
+.activate-select {
+  .sorting_1 {
+    background-color: $gray-100;
+  }
+}
+
+// datatable
+
+.table-bordered {
+  border: $table-border-width solid $table-border-color;
+}
+
+.table,
+table {
+  &.dataTable {
+    &.dtr-inline.collapsed > tbody > tr > td {
+      position: relative;
+
+      &.dtr-control {
+        padding-left: 30px;
+
+        &:before {
+          top: 64%;
+          left: 5px;
+          height: 14px;
+          width: 14px;
+          margin-top: -14px;
+          display: block;
+          position: absolute;
+          color: $white;
+          border: 2px solid $white;
+          border-radius: 14px;
+          box-sizing: content-box;
+          text-align: center;
+          text-indent: 0 !important;
+          line-height: 12px;
+          content: "+";
+          background-color: $primary;
+        }
+      }
+    }
+  }
+}
+div.dtsp-panesContainer {
+  div.dtsp-searchPane {
+    div.dtsp-topRow {
+      button {
+        border-color: var(--#{$prefix}border-color) !important;
+      }
+      .btn-light.disabled{
+        color: var(--#{$prefix}body-color) !important;
+        background-color: var(--#{$prefix}light) !important;
+      }
+    }
+    div.dataTables_wrapper {
+      border-color: var(--#{$prefix}border-color) !important;
+      div.dtsp-nameCont {
+        span.badge {
+          line-height: 1em !important;
+          background-color: var(--#{$prefix}primary) !important;
+          color: $white !important;
+        }
+      }
+    }
+  }
+}
+
+table.dataTable.table-striped tr.dtrg-level-0 {
+  background-color: var(--#{$prefix}secondary-bg) !important;
+}
+
+table.dataTable.table-striped > tbody > tr:nth-of-type(2n + 1) {
+  background-color: var(--#{$prefix}secondary-bg) !important;
+}
+
+div.dataTables_wrapper div.dataTables_info {
+  color: var(--#{$prefix}secondary-color) !important;
+}
+
+table.dataTable {
+  thead,
+  tbody {
+    tr {
+      > .dtfc-fixed-left {
+        background-color: transparent !important;
+        border-color: var(--#{$prefix}border-color) !important;
+      }
+    }
+  }
+}

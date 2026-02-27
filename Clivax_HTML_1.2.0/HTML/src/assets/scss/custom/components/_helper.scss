@@ -1,0 +1,123 @@
+// helper
+
+// Font Family
+.font-family-secondary {
+    font-family: $font-family-secondary;
+}
+
+$font-size-mixing: 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 36, 48;
+
+@each $font-size-mixing in $font-size-mixing {
+    .fs-#{$font-size-mixing} {
+        font-size: #{$font-size-mixing}px !important;
+    }
+}
+
+// Social
+
+.social-list-item {
+    height: 2rem;
+    width: 2rem;
+    line-height: calc(2rem - 2px);
+    display: block;
+    border: 1px solid $gray-500;
+    border-radius: 50%;
+    color: $gray-500;
+    text-align: center;
+    transition: all 0.4s;
+
+    &:hover {
+        color: $gray-600;
+        background-color: $gray-200;
+    }
+}
+
+.w-xs {
+    min-width: 80px;
+}
+
+.w-sm {
+    min-width: 95px;
+}
+
+.w-md {
+    min-width: 110px;
+}
+
+.w-lg {
+    min-width: 140px;
+}
+
+.w-xl {
+    min-width: 160px;
+}
+
+// overlay
+
+.bg-overlay {
+    position: absolute;
+    height: 100%;
+    width: 100%;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    top: 0;
+    opacity: 0.6;
+    background-color: $black;
+}
+
+// flex-1
+
+.flex-1 {
+    flex: 1;
+}
+
+// alert
+
+.alert-dismissible {
+    .btn-close {
+        font-size: 10px;
+        padding: $alert-padding-y * 1.4 $alert-padding-x;
+        background: transparent escape-svg($btn-close-bg-dark) center / $btn-close-width auto no-repeat;
+    }
+}
+
+::selection {
+    background-color: $primary;
+    color: $white;
+}
+
+// Tooltip
+.tooltip {
+    border: 1px solid var(--#{$prefix}border-color);
+    border-radius: $border-radius;
+}
+
+// BlockUI
+
+.blockElement,
+.blockUI,
+.blockMsg{
+    background-color: var(--#{$prefix}secondary-bg) !important;
+    padding: 5px 10px !important;
+    border: none !important;
+    border-radius: $border-radius !important;
+    width: auto !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    h1{
+        font-size: 1rem !important;
+        margin-bottom: 0 !important;
+    }
+}
+
+.blockUI{
+    &.blockOverlay{
+        width: 100% !important;
+    }
+}
+
+.border-dashed{
+    border-style: dashed;
+}

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Warehouse, Plus, Trash2, MapPin, Edit2, ChevronRight, ChevronDown, Building2, Layers } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { Loading } from '@/components/ui/Page';
-import { apiUrl } from '@/lib/api';
+import { apiUrl, apiFetch } from '@/lib/api';
 
 // Tipos atualizados para refletir o backend
 interface Central {
@@ -232,17 +232,16 @@ export default function AlmoxarifadosPage() {
   useEffect(() => {
     if (authLoading) return;
     if (!user) return;
-    fetchData(user.id);
+    fetchData();
   }, [authLoading, user]);
 
-  const fetchData = async (userId: string) => {
+  const fetchData = async () => {
     try {
-      const headers = { 'X-User-Id': userId };
       const [resC, resA, resS, resSet] = await Promise.all([
-        fetch(apiUrl('/api/centrais'), { headers }),
-        fetch(apiUrl('/api/almoxarifados'), { headers }),
-        fetch(apiUrl('/api/sub_almoxarifados'), { headers }),
-        fetch(apiUrl('/api/setores'), { headers })
+        apiFetch('/api/centrais'),
+        apiFetch('/api/almoxarifados'),
+        apiFetch('/api/sub_almoxarifados'),
+        apiFetch('/api/setores')
       ]);
 
       if (resC.ok && resA.ok && resS.ok && resSet.ok) {

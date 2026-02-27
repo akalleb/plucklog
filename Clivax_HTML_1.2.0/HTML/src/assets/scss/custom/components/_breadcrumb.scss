@@ -1,0 +1,44 @@
+
+// breadcrumb
+
+
+// Breadcrumb item arrow
+.breadcrumb {
+    .breadcrumb-item {
+        color: var(--#{$prefix}body-color);
+
+        &.active{
+            color: var(--#{$prefix}secondary-color);
+        }
+
+        &::before {
+            font-family: "Material Design Icons";
+        }
+
+        .breadcrumb-icon {
+            margin-right: 0.5rem;
+            i {
+                height: 1rem;
+            }
+        }
+    }
+    &.breadcrumb-transparent {
+        background-color: transparent;
+    }
+}
+
+// RTL
+
+[dir="rtl"] {
+    .breadcrumb-item {
+        + .breadcrumb-item {
+            padding-right: $breadcrumb-item-padding;
+
+            &::before {
+                font-family: "Material Design Icons";
+                padding-left: 0;
+                content: "\F0141";
+            }
+        }
+    }
+}

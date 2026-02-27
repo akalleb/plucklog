@@ -1,0 +1,98 @@
+// card
+
+@each $color, $value in $theme-colors {
+    .card-#{$color} {
+        background-color: $value !important;
+        color: $white !important;
+        .card-header {
+            background-color: $value !important;
+            color: $white !important;
+            .card-title {
+                color: $white !important;
+            }
+        }
+        .card-body {
+            color: $white !important;
+        }
+        .card-footer {
+            background-color: $value !important;
+            color: $white !important;
+        }
+    }
+}
+
+.card {
+    margin-bottom: $grid-gutter-width;
+}
+
+.card-drop {
+    font-size: 20px;
+    line-height: 0;
+    color: inherit;
+}
+
+.card-title {
+    font-size: 1rem;
+    margin: 0 0 7px 0;
+}
+
+.card-title-desc {
+    color: $card-title-desc;
+    margin-bottom: 24px;
+}
+
+.card-header {
+    background-color: var(--#{$prefix}white);
+    border-bottom: 1px solid var(--#{$prefix}border-color);
+    .card-title {
+        margin-bottom: 0;
+    }
+    display: flex;
+    align-items: center;
+}
+
+.card-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1rem;
+    margin-right: 0.5rem;
+}
+
+.card-header-lines {
+    margin-right: calc(-0.5 * 1rem);
+    margin-left: calc(-0.5 * 1rem);
+    .nav-link {
+        margin-bottom: calc((0.75rem - 2px) * -1);
+    }
+}
+
+.nav-lines {
+    border-width: 2px;
+    margin-bottom: calc(-1.5 * 2px);
+
+    .nav-link {
+        border: 0;
+        background: 0 0;
+        border-bottom: 2px solid transparent;
+        &.active {
+            color: $primary;
+            border-color: $primary;
+        }
+    }
+}
+
+.card-footer {
+    background-color: var(--#{$prefix}white);
+    border-top: 1px solid var(--#{$prefix}border-color);
+}
+
+.card-addon{
+    margin-left: auto;
+}
+
+@media (min-width: 1500px){
+    .card-row-fill-xl>[class*=col]>.card {
+        flex: 1;
+    }
+}

@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta content="Clivax Premium Multipurpose Admin & Dashboard Template documentation of HTML" name="description" />
+    <meta name="keywords" content="Clivax admin documentation, Clivax Laravel documentation, Clivax HTML documentation">
+    <meta content="codebucks" name="author" />
+    <title>Clivax - Responsive Bootstrap 5 Admin & Dashboard Templates</title>
+    <!-- App favicon -->
+    <link rel="shortcut icon" href="images/favicon.ico">
+    <!-- Bootstrap Css -->
+    <link rel="stylesheet" href="css/bootstrap.min.css">
+    <!-- Custom Css-->
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+
+    <!-- navbar -->
+    <nav class="navbar navbar-expand-md py-3 fixed-top">
+        <div class="container">
+            <a class="navbar-brand" href="#"><img src="images/logo-light.png" alt="" height="20"></a>
+            <span class="badge bg-danger">v1.2.0</span>
+        </div>
+    </nav>
+
+    <div class="page-wrapper">
+        <div class="container">
+            <div class="row justify-content-center g-3">
+                <div class="col-md-3 d-none d-md-block">
+                    <div class="card bg-white sidebar-menu shadow border-0 min-vh-100">
+                        <div class="card-body p-4">
+                            <nav id="navbar-example2" class="h-100 flex-column align-items-stretch">
+                                <nav class="nav nav-pills flex-column">
+                                    <a class="nav-link" href="#introduction">
+                                        <i class="mdi mdi-text-box-outline"></i>
+                                        <span>Introduction</span>
+                                    </a>
+                                    <a class="nav-link" href="#setup">
+                                        <i class="mdi mdi-cog-outline"></i>
+                                        <span>Setup</span>
+                                    </a>
+                                    <a class="nav-link" href="#light">
+                                        <i class="mdi mdi-white-balance-sunny"></i>
+                                        <span>Light Version</span>
+                                    </a>
+                                    <a class="nav-link" href="#dark">
+                                        <i class="mdi mdi-white-balance-sunny"></i>
+                                        <span>Dark Version</span>
+                                    </a>
+                                    <a class="nav-link" href="#rtl">
+                                        <i class="mdi mdi-web"></i>
+                                        <span>RTL Version</span>
+                                    </a>
+                                    <a class="nav-link" href="#change-log">
+                                        <i class="mdi mdi-format-list-bulleted"></i>
+                                        <span>Changelog</span>
+                                    </a>
+                                </nav>
+                            </nav>
+                        </div>
+                        <!-- end card-body -->
+                    </div>
+                    <!-- end card -->
+                </div>
+                <!-- end col -->
+                <div class="col-md-9">
+                    <div class="card bg-white shadow border-0 mb-3">
+                        <div class="card-body">
+                            <h3 class="fw-bold mb-4 text-center">Clivax - Responsive Bootstrap UI Kit</h3>
+                            <p><b>Created:</b> 06 July 2023</p>
+                            <p><b>By:</b> Codebucks</p>
+                            <p><b>Email:</b> codebucks007@gmail.com</p>
+                            <p class="mb-0">
+                                Thank you for purchasing my theme. If you have any questions that are beyond the scope of this help file, please feel free to email via my user page contact form <a href="https://wrapbootstrap.com/user/codebucks/message" target="_blank"> here </a>. Thanks so much!
+                            </p>
+
+
+                        </div>
+                    </div>
+
+                    <div class="card bg-white shadow border-0" data-bs-spy="scroll" data-bs-target="#navbar-example2" data-bs-root-margin="0px 0px -69px" data-bs-smooth-scroll="true">
+                        <div class="card-body p-4">
+                            <div id="introduction" class="mb-4">
+                                <h5 class="fw-bold mb-4">Introduction</h5>
+                                
+                                <p>
+                                    Clivax is built with <strong>Bootstrap v5.3.3</strong> in HTML, SCSS with responsive with all devices and supported with Dark, light, RTL modes. You can change mode very quickly by doing a single change. It has many features like one to one chat, group chat, contact, send files, online users, read and unread new messages from users, authentication pages and many more.
+                                </p>
+                                <h5 class="fw-bold mb-4">📁 Folder & Files Structure</h5>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <pre class="mb-0">
+    HTML
+      ├── dist
+      ├── src
+        ├── assets
+          ├── css
+          ├── fonts
+          ├── images
+          ├── js
+          └── scss
+              ├── custom
+              ├── _variables.scss
+              ├── _variables-dark.scss
+              ├── app.scss                
+              ├── bootstrap.scss
+              └── icons.scss
+        ├── partials
+          ├── body.html
+          ├── footer.html
+          ├── head-css.html
+          ├── main.html
+          ├── menu.html
+          ├── page-title.html
+          ├── right-sidebar.html
+          ├── sidebar.html
+          ├── title-meta.html
+          ├── topbar.html
+          └── vendor-scripts.html
+        └── all html pages
+      ├── gulpfile.js
+      └── package.json
+      └── yarn.lock
+    </pre>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mt-3" id="setup">
+                                <h5 class="fw-bold mb-4">Setup HTML</h5>
+                                <div class="mb-4">
+                                    <h6 class="mt-4 fw-semibold">Description</h6>
+                                    <p>
+                                        We are using
+                                        <a href="https://gulpjs.com/" target="_blank">gulp</a> which
+                                        allows having complete automation for build flow. In case if you
+                                        don't know Gulp then it's easy to use it. Gulp is a toolkit for
+                                        automating painful or time-consuming tasks in the development
+                                        workflow, so you can stop messing around while building any
+                                        project. You can read it more about it <a href="https://gulpjs.com/" target="_blank">here</a>.
+                                        Please follow below steps to install and setup all
+                                        prerequisites:
+                                    </p>
+                                </div>
+
+                                <div class="mb-4">
+                                    <h6 class="mt-4 fw-semibold">Prerequisites</h6>
+
+                                    <p>
+                                        Please follow below steps to install and setup all
+                                        prerequisites:
+                                    </p>
+
+                                    <ul>
+                                        <li>
+                                            <strong>Yarn</strong>
+                                            <p>
+                                                Make sure to have the <a href="https://classic.yarnpkg.com/en/" target="_blank">Yarn</a> installed &amp; running
+                                                in your computer.
+                                                If you already have installed Yarn on your computer, you
+                                                can skip this step. We suggest you to use Yarn instead
+                                                of NPM.</p>
+                                        </li>
+                                        <li>
+                                            <strong>Nodejs</strong>
+                                            <p>
+                                                Make sure to have the <a href="https://nodejs.org/" target="_blank">Node.js</a> installed &amp; running
+                                                in your computer.
+                                                If you already have installed Node on your computer, you
+                                                can skip this step if your existing node version is
+                                                greater than 18. We suggest you to use LTS version of Node.js. </p>
+                                        </li>
+
+                                        <li>
+                                            <strong>Gulp</strong>
+
+                                            <p>Make sure to have the <a href="https://gulpjs.com/" target="_blank">Gulp</a> installed &amp; running in
+                                                your computer. If you already have installed gulp on run
+                                                command <code>npm install -g gulp</code> from your
+                                                terminal.</p>
+                                        </li>
+
+                                        <li>
+                                            <strong>Git</strong>
+
+                                            <p>Make sure to have the <a href="https://git-scm.com/" target="_blank">Git</a> installed globally &amp;
+                                                running on your computer. If you already have installed
+                                                git on your computer, you can skip this step.</p>
+                                        </li>
+                                    </ul>
+                                </div>
+
+                                <div>
+                                    <h6 class="mt-4 fw-semibold">Installation</h6>
+
+                                    <p>
+                                        To setup the admin theme, follow below-mentioned steps:
+                                    </p>
+
+                                    <ul>
+                                        <li>
+                                            <strong>Install Prerequisites</strong>
+                                            <p>
+                                                Make sure to have all above prerequisites installed
+                                                &amp; running on your computer
+                                            </p>
+                                        </li>
+                                    </ul>
+
+
+                                    <p class="mt-4">
+                                        After you finished with the above steps, you can run the
+                                        following commands into the terminal / command prompt from the
+                                        root directory of the project to run the project locally or
+                                        build for
+                                        production use:
+                                    </p>
+                                    <table class="table table-bordered m-0">
+                                        <thead>
+                                            <tr>
+                                                <th style="width: 20%;">
+                                                    <i class="ti-file"></i> Command
+                                                </th>
+                                                <th>Description</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>
+                                                    <code>yarn install</code>
+                                                </td>
+                                                <td>
+                                                    This would install all the required dependencies in
+                                                    the <code>node_modules</code> folder.
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <code>gulp</code>
+                                                </td>
+                                                <td>
+                                                    Runs the project locally, starts the development
+                                                    server and watches for any changes in your code,
+                                                    including your HTML, javascript, sass, etc. The
+                                                    development server is accessible at <a href='http://localhost:3000'>http://localhost:3000</a>.
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <code>gulp build</code>
+                                                </td>
+                                                <td>
+                                                    Generates a <code>/dist</code> directory with all
+                                                    the production files.
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div>
+                                    <h6 class="mt-4 fw-bold">Tips</h6>
+                                    <div class="alert alert-warning">
+                                        SCSS: We suggest you to do not change any scss files from the assets/scss/custom folders because to get new updates will might be break your SCSS changes if any you have made. We strongly suggest you
+                                        to create new custom.scss file and use that instead of overwrite
+                                        any theme's custom scss files.
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mt-4" id="light">
+                                <h5 class="fw-bold mb-4">Light Version</h5>
+                                <p class="mb-0">
+                                    To have light mode enabled, Keep your body element with data attribute
+                                    <code>data-bs-theme="light"</code> in the <code> src/partials/body.html </code>
+                                    <br> E.g. <code> &lt;body data-bs-theme="light"&gt;</code> to
+                                    have Light layout.
+                                </p>
+                            </div>
+                            <div class="mt-4" id="dark">
+                                <h5 class="fw-bold mb-4">Dark Version</h5>
+                                <p class="mb-0">
+                                    To have dark mode enabled, Keep your body element with data attribute
+                                    <code>data-bs-theme="dark"</code> in the <code> src/partials/body.html </code>
+                                    <br> E.g. <code> &lt;body data-bs-theme="dark"&gt;</code> to
+                                    have Dark layout.
+                                </p>
+                            </div>
+                            <div class="mt-4" id="rtl">
+                                <h5 class="fw-bold mb-4">RTL Version</h5>
+                                <p class="mb-0">
+                                    To have rtl mode enabled, replace the reference of
+                                    <code>bootstrap.min.css</code> to
+                                    <code>bootstrap-rtl.min.css</code> and
+                                    <code>app.min.css</code> to
+                                    <code>app-rtl.min.css</code> in the <code> src/partials/head-css.html</code>.
+                                </p>
+
+                                <p>
+                                    Also add <code>dir="rtl"</code> in the html tag. <code>e.g &lt;html dir=&quot;rtl&quot;&gt;</code>
+                                </p>
+                            </div>
+                            <div class="mt-4" id="credits">
+                                <h5 class="fw-bold mb-4">Sources & Credits</h5>
+                                <p>We've used the following images, files or other plugins URL, Licenses as listed.</p>
+                                <div>
+                                    <div class="table-responsive">
+                                    <table class="table table-bordered table-striped mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th scope="col">NAME</th>
+                                                <th scope="col">URL</th>
+                                                <th scope="col">LICENSE</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <th scope="row">Bootstrap</th>
+                                                <td><a href="https://getbootstrap.com/" target="_blank">https://getbootstrap.com/</a></td>
+                                                <td>MIT</td>
+                                            </tr>
+
+                                            <tr>
+                                                <th scope="row">Unsplash - Images</th>
+                                                <td><a href="https://unsplash.com/" target="_blank">https://unsplash.com/</a></td>
+                                                <td>MIT</td>
+                                            </tr>
+                                            
+                                            <tr>
+                                                <th scope="row">Apexcharts</th>
+                                                <td><a href="https://apexcharts.com/" target="_blank">https://apexcharts.com/</a></td>
+                                                <td>MIT</td>
+                                            </tr>
+                                            <tr>
+                                                <th scope="row">Choices js</th>
+                                                <td><a href="https://github.com/Choices-js/Choices" target="_blank">https://github.com/Choices-js/Choices</a></td>
+                                                <td>MIT</td>
+                                            </tr>
+                                            <tr>
+                                                <th scope="row">Dropzone</th>
+                                                <td><a href="https://www.dropzone.dev/js/" target="_blank">https://www.dropzone.dev/js/</a></td>
+                                                <td>MIT</td>
+                                            </tr>
+                                            <tr>
+                                                <th scope="row">Flatpicker</th>
+                                                <td><a href="https://flatpickr.js.org/" target="_blank">https://flatpickr.js.org/</a></td>
+                                                <td>MIT</td>
+                                            </tr>
+                                            <tr>
+                                                <th scope="row">Full Calendar</th>
+                                                <td><a href="https://fullcalendar.io/" target="_blank">https://fullcalendar.io/</a></td>
+                                                <td>MIT</td>
+                                            </tr>
+                                            <tr>
+                                                <th scope="row">Gmaps</th>
+                                                <td><a href="https://hpneo.dev/gmaps/examples.html" target="_blank">https://hpneo.dev/gmaps/examples.html</a></td>
+                                                <td>MIT</td>
+                                            </tr>
+                                            <tr>
+                                                <th scope="row">Jsvectormap</th>
+                                                <td><a href="https://github.com/themustafaomar/jsvectormap" target="_blank">https://github.com/themustafaomar/jsvectormap</a>
+                                                </td>
+                                                <td>MIT</td>
+                                            </tr>
+                                            <tr>
+                                                <th scope="row">Moment</th>
+                                                <td><a href="https://momentjs.com/" target="_blank">https://momentjs.com/</a></td>
+                                                <td>MIT</td>
+                                            </tr>
+                                            <tr>
+                                                <th scope="row">Simplebar</th>
+                                                <td><a href="https://grsmto.github.io/simplebar/" target="_blank">https://grsmto.github.io/simplebar/</a></td>
+                                                <td>MIT</td>
+                                            </tr>
+                                            <tr>
+                                                <th scope="row">Sweetalert 2</th>
+                                                <td><a href="https://sweetalert2.github.io/" target="_blank">https://sweetalert2.github.io/</a></td>
+                                                <td>MIT</td>
+                                            </tr>
+                                            <tr>
+                                                <th scope="row">Swiper</th>
+                                                <td><a href="https://swiperjs.com/" target="_blank">https://swiperjs.com/</a></td>
+                                                <td>MIT</td>
+                                            </tr>
+                                            <tr>
+                                                <th scope="row">Toastify js</th>
+                                                <td><a href="https://apvarun.github.io/toastify-js/" target="_blank">https://apvarun.github.io/toastify-js/</a></td>
+                                                <td>MIT</td>
+                                            </tr>
+                                            
+                                        </tbody>
+                                    </table>
+                                    <!-- end table -->
+                                </div>
+                                </div>
+                            </div>
+                            <div class="mt-4" id="change-log">
+                                <h5 class="fw-bold mb-4">Changelog</h5>
+                                <div>
+                                    <div id="v-1-1" class="mb-4">
+                                        <h6 class="mb-3">
+                                            <span class="text-primary">v1.2.0</span>
+                                            <small class="text-muted"> - 14 November 2024 </small>
+                                        </h6>
+                                        <ul>
+                                            <li>
+                                                Update latest Bootstrap v5.3.3
+                                            </li>
+                                            <li>
+                                                Minor Issue Fixed.
+                                            </li>
+                                        </ul>
+                                    </div>
+                                    <div id="v-1-1" class="mb-4">
+                                        <h6 class="mb-3">
+                                            <span class="text-primary">v1.1.0</span>
+                                            <small class="text-muted"> - 1 January 2024 </small>
+                                        </h6>
+                                        <ul>
+                                            <li>
+                                                Update latest Bootstrap v5.3.2
+                                            </li>
+                                        </ul>
+                                    </div>
+                                    <div id="v-1-0" class="mb-4">
+                                        <h6 class="mb-3">
+                                            <span class="text-primary">v1.0.0</span>
+                                            <small class="text-muted"> - 6 July 2023 </small>
+                                        </h6>
+                                        <ul>
+                                            <li>
+                                                Initial released
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- end card-body -->
+                    </div>
+                    <!-- end card -->
+
+                    <!-- start footer -->
+                    <footer class="footer py-3">
+                        <div class="container-fluid">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="text-center text-md-start">
+                                        <script>document.write(new Date().getFullYear())</script> © Clivax.
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="text-md-end text-center">
+                                        Crafted with <i class="mdi mdi-heart text-danger"></i> by <a href="http://codebucks.in/" target="_blank" class="text-muted">Codebucks</a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </footer>
+                    <!-- end footer -->
+                </div>
+                <!-- end col -->
+            </div>
+        </div>
+    </div>
+
+    <script src="js/bootstrap.bundle.min.js"></script>
+</body>
+
+</html>

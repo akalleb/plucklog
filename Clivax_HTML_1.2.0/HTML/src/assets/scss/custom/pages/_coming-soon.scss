@@ -1,0 +1,45 @@
+// coming-soon.scss
+
+.coming-title {
+    background: -webkit-linear-gradient(267deg, var(--#{$prefix}primary), var(--#{$prefix}info));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.counter-number {
+    font-size: 36px;
+    font-weight: $font-weight-bold;
+    font-family: $font-family-secondary;
+    text-align: center;
+    display: flex;
+    color: $body-color;
+    span {
+        font-size: 16px;
+        font-weight: $font-weight-normal;
+        display: block;
+        padding-top: 5px;
+    }
+}
+
+@media (max-width: 480px) {
+    .counter-number {
+        font-size: 24px !important;
+        span {
+            font-size: 14px !important;
+        }
+    }
+}
+@media (max-width: 400px) {
+    .counter-number {
+        font-size: 20px !important;
+        span {
+            font-size: 12px !important;
+        }
+    }
+}
+
+.coming-bg {
+    background-image: url("../images/comingsoon-bg.jpg");
+    background-repeat: no-repeat;
+    background-size: cover;
+}

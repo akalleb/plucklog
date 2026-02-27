@@ -1,0 +1,44 @@
+
+// Alert
+
+
+@each $color, $value in $theme-colors {
+    .alert-label-#{$color} {
+        background-color: rgba(($value), 0.15);
+        border-color: transparent;
+        color: $value;
+    }
+
+    .alert-#{$color} {
+        background-color: $value;
+        color: $white;
+    }
+
+    .alert-outline-#{$color} {
+        background-color: transparent;
+        border-color: $value;
+        color: $value;
+
+        hr{
+            color: $value;
+        }
+    }
+}
+
+.alert{
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+
+.alert-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    margin-right: 0.75rem;
+    > i{
+        font-size: 1rem;
+    }
+}

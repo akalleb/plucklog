@@ -1,0 +1,108 @@
+//
+// Datepicker
+//
+
+.datepicker,
+.datetimepicker {
+  width: fit-content;
+  border: 1px solid var(--#{$prefix}border-color) !important;
+  border-radius: $border-radius;
+  padding: 8px;
+  z-index: 999 !important;
+
+  table {
+    tr {
+      td {
+        width: 2rem;
+        height: 2rem;
+        &.today {
+          color: $primary;
+          background: rgba($primary, 0.15);
+          position: relative;
+          &:hover {
+            color: $primary !important;
+            background: rgba($primary, 0.15) !important;
+          }
+          &:after {
+            content: "";
+            position: absolute;
+            display: inline-block;
+            border-bottom: 8px solid currentColor;
+            border-left: 8px solid transparent;
+            bottom: 2px;
+            right: 2px;
+          }
+        }
+        &.day {
+          &.active,
+          &:active {
+            background: $primary !important;
+            color: $white !important;
+            &:hover {
+              background: $primary !important;
+              color: $white !important;
+            }
+          }
+          &:hover {
+            background: var(--#{$prefix}secondary-bg);
+            color: $primary;
+          }
+        }
+        &.highlighted {
+          background: var(--#{$prefix}secondary-bg);
+        }
+
+        > span {
+          padding: 2px 0;
+          &:hover {
+            background: var(--#{$prefix}secondary-bg);
+            color: $primary;
+          }
+          &.active {
+            background: $primary !important;
+          }
+        }
+      }
+    }
+  }
+}
+
+.table-condensed {
+  > thead > tr > th,
+  > tbody > tr > td {
+    padding: 7px;
+  }
+}
+
+.datepicker-dropdown {
+  &.datepicker-orient-top {
+    &:before {
+      border-top-color: var(--#{$prefix}border-color) !important;
+    }
+  }
+}
+
+.datetimepicker-inline {
+  min-width: 15.2rem;
+  .table-condensed {
+    width: 100%;
+    > thead {
+      > tr {
+        > th {
+          width: 30px;
+          height: 30px;
+          &.prev {
+            ::before {
+              content: "«";
+            }
+          }
+          &.next {
+            ::before {
+              content: "»";
+            }
+          }
+        }
+      }
+    }
+  }
+}

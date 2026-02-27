@@ -12,10 +12,15 @@ interface User {
   central_id?: string;
 }
 
+interface LoginResponse {
+  user: User;
+  access_token: string;
+}
+
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (user: User) => void;
+  login: (data: LoginResponse) => void;
   logout: () => void;
   canAccess: (requiredRole: string[]) => boolean;
 }
@@ -24,7 +29,10 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 type AuthSnapshot = { user: User | null; hydrated: boolean };
 
-const AUTH_STORAGE_KEY = 'almox_user';
+const AUTH_STORAGE_KEY = 'plucklog_user';
+const TOKEN_STORAGE_KEY = 'plucklog_token';
+const OLD_AUTH_KEY = 'almox_user';
+
 const SERVER_SNAPSHOT: AuthSnapshot = { user: null, hydrated: false };
 
 const safeParseUser = (value: string | null): User | null => {
@@ -55,6 +63,14 @@ const authStore = (() => {
   const hydrate = () => {
     if (typeof window === 'undefined') return;
     if (snapshot.hydrated) return;
+    
+    // Migração Automática (P4)
+    const oldUser = localStorage.getItem(OLD_AUTH_KEY);
+    if (oldUser && !localStorage.getItem(AUTH_STORAGE_KEY)) {
+        localStorage.setItem(AUTH_STORAGE_KEY, oldUser);
+        localStorage.removeItem(OLD_AUTH_KEY);
+    }
+
     snapshot = { hydrated: true, user: safeParseUser(localStorage.getItem(AUTH_STORAGE_KEY)) };
     emit();
   };
@@ -87,13 +103,18 @@ const authStore = (() => {
   const getSnapshot = () => snapshot;
   const getServerSnapshot = () => SERVER_SNAPSHOT;
 
-  const setUser = (user: User | null) => {
+  const setUser = (data: LoginResponse | null) => {
     if (typeof window !== 'undefined') {
-      if (user) localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
-      else localStorage.removeItem(AUTH_STORAGE_KEY);
+      if (data) {
+          localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(data.user));
+          localStorage.setItem(TOKEN_STORAGE_KEY, data.access_token);
+      } else {
+          localStorage.removeItem(AUTH_STORAGE_KEY);
+          localStorage.removeItem(TOKEN_STORAGE_KEY);
+      }
     }
 
-    snapshot = { hydrated: true, user };
+    snapshot = { hydrated: true, user: data ? data.user : null };
     emit();
   };
 
@@ -106,9 +127,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const user = snapshot.user;
   const loading = !snapshot.hydrated;
 
-  const login = (userData: User) => {
-    authStore.setUser(userData);
-    router.push(userData.role === 'operador_setor' ? '/setor' : '/');
+  const login = (data: LoginResponse) => {
+    authStore.setUser(data);
+    router.push(data.user.role === 'operador_setor' ? '/setor' : '/');
   };
 
   const logout = () => {

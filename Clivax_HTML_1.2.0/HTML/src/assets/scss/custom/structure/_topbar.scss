@@ -1,0 +1,216 @@
+// topbar.scss
+
+#page-topbar {
+    position: fixed;
+    top: 0;
+    right: 0;
+    left: 0;
+    z-index: 1002;
+    background-color: var(--#{$prefix}white);
+}
+
+.navbar-header {
+    display: flex;
+    align-items: center;
+    margin: 0 auto;
+    height: $header-height;
+    padding: 0;
+
+    .dropdown {
+        .show.header-item {
+            background-color: darken($header-bg, 2%);
+        }
+    }
+}
+
+.navbar-logo-box {
+    position: relative;
+    padding: 0 1.5rem;
+    width: $navbar-logo-box-width;
+    background: var(--#{$prefix}white);
+
+    @media (max-width: 991.98px) {
+        width: $leftsidebar-collapsed-width !important;
+
+        .logo-lg {
+            display: none;
+        }
+    }
+}
+
+@media (max-width: 991.98px) {
+    .sidebar-enable {
+        transition: all 0.5s ease-in !important;
+        .navbar-logo-box {
+            width: $leftsidebar-width !important;
+            .logo {
+                .logo-lg {
+                    display: inline-block !important;
+                }
+            }
+        }
+    }
+}
+
+#sidebar-btn {
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.sidebar-collpsed {
+    .navbar-logo-box {
+        #sidebar-btn {
+            right: -70px;
+        }
+    }
+}
+.menu-sm {
+    width: calc(100% - 255px);
+    @media (max-width: 408px) {
+        margin: auto !important;
+    }
+    @media (max-width: 452px) {
+        width: 100%;
+        .dropdown-menu-wide {
+            min-width: 18rem;
+        }
+    }
+}
+
+.logo {
+    line-height: 60px;
+
+    .logo-sm {
+        display: none;
+    }
+}
+
+.logo-light {
+    display: none;
+}
+
+/* Search */
+
+.app-search {
+    padding: calc(#{$header-height - 38px} / 2) 0;
+
+    .form-control {
+        background-color: var(--#{$prefix}light);
+        height: 32px;
+        padding-left: 40px;
+        padding-right: 20px;
+        box-shadow: none;
+        border-radius: 30px;
+    }
+    span {
+        position: absolute;
+        z-index: 10;
+        line-height: 38px;
+        left: 13px;
+        top: -2px;
+        color: $gray-600;
+    }
+}
+
+.page-content {
+    padding: calc(#{$header-height} + #{$grid-gutter-width}) 0.9rem $footer-height
+        $grid-gutter-width;
+}
+
+.header-item {
+    height: $header-height;
+    box-shadow: none !important;
+    color: $header-item-color;
+    border: 0;
+    border-radius: 0px;
+
+    &:hover {
+        color: $header-item-color;
+    }
+}
+
+.header-profile-user {
+    height: 30px;
+    width: 30px;
+    background-color: $gray-300;
+    padding: 3px;
+}
+
+.user-dropdown {
+    .dropdown-item {
+        i {
+            display: inline-block;
+        }
+    }
+}
+
+.top-icon {
+    width: 35px;
+    height: 35px;
+    background-color: var(--#{$prefix}body-bg);
+    i {
+        font-size: 18px;
+        color: $header-item-color;
+    }
+
+    &:hover,
+    &:active {
+        background-color: $primary;
+        i {
+            color: $white;
+        }
+    }
+}
+
+.notification-item {
+    .d-flex {
+        padding: 0.75rem 1rem;
+
+        &:hover {
+            background-color: var(--#{$prefix}light);
+        }
+    }
+}
+
+// Apps
+.activities {
+    z-index: 1000;
+}
+
+// Dark
+[data-topbar="dark"] {
+    #page-topbar {
+        background-color: $white-dark;
+        .app-search .form-control {
+            background-color: $light-dark;
+            border-color: $border-color-dark;
+            &:focus{
+                color: $body-color-dark;
+                border-color: $primary;
+            }
+            &::placeholder{
+                color: $body-color-dark;
+                opacity: 0.75;
+            }
+        }
+        .top-icon {
+            background-color: $body-bg-dark;
+            &:active, 
+            &:hover {
+                background-color: $primary;
+            }
+        }
+    }
+    .navbar-logo-box {
+        background: $white-dark;
+    }
+    .logo-light {
+        display: block;
+    }
+
+    .logo-dark {
+        display: none;
+    }
+}

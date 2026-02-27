@@ -1,6 +1,6 @@
 # Deploy no Render com MongoDB Atlas
 
-Este guia detalha como fazer o deploy da aplicação ALMOX-SMS no Render usando MongoDB Atlas como banco de dados.
+Este guia detalha como fazer o deploy da aplicação PLUCKLOG-SMS no Render usando MongoDB Atlas como banco de dados.
 
 ## ✅ Preparação Concluída
 
@@ -50,7 +50,7 @@ No painel do Render, configure as seguintes variáveis de ambiente:
 - `FLASK_ENV`: `production`
 - `SECRET_KEY`: Uma chave secreta forte (gere uma nova para produção)
 - `MONGO_URI`: URI de conexão do MongoDB (ex: `mongodb+srv://user:password@cluster.mongodb.net/`)
-- `MONGO_DB`: Nome do banco de dados MongoDB (ex: `almox_sms`)
+- `MONGO_DB`: Nome do banco de dados MongoDB (ex: `PLUCKLOG_sms`)
 
 #### Observações Importantes:
 - **MongoDB Apenas**: A aplicação em produção usa APENAS MongoDB (sem PostgreSQL)
@@ -63,13 +63,13 @@ FLASK_ENV=production
 SECRET_KEY=<gere-uma-chave-forte>
 
 # MongoDB (OBRIGATÓRIO - URI deve incluir o nome do banco)
-MONGO_URI=mongodb+srv://<user>:<pass>@cluster0.xxxxx.mongodb.net/almox_sms?retryWrites=true&w=majority
-MONGO_DB=almox_sms
+MONGO_URI=mongodb+srv://<user>:<pass>@cluster0.xxxxx.mongodb.net/PLUCKLOG_sms?retryWrites=true&w=majority
+MONGO_DB=PLUCKLOG_sms
 ```
 
 **⚠️ IMPORTANTE:** 
 - A variável `FLASK_ENV=production` é obrigatória para usar a configuração correta
-- A `MONGO_URI` deve incluir o nome do banco (`/almox_sms`) antes dos parâmetros de query
+- A `MONGO_URI` deve incluir o nome do banco (`/PLUCKLOG_sms`) antes dos parâmetros de query
 - O Render detecta automaticamente a porta através da variável `$PORT`
 
 ### 4. Deploy
@@ -91,7 +91,7 @@ curl http://127.0.0.1:5000/health/mongo
 **Resposta esperada:**
 ```json
 {
-  "db": "almox_sms",
+  "db": "PLUCKLOG_sms",
   "mongo_ok": true
 }
 ```
@@ -104,10 +104,10 @@ curl http://127.0.0.1:5000/test/mongo
 **Resposta esperada:**
 ```json
 {
-  "database": "almox_sms",
+  "database": "PLUCKLOG_sms",
   "documento_inserido": "ObjectId(...)",
   "documento_lido": {
-    "app": "almox-sms",
+    "app": "PLUCKLOG-sms",
     "teste": "deploy_render",
     "timestamp": "2025-10-01T12:32:51.259000"
   },
@@ -119,7 +119,7 @@ curl http://127.0.0.1:5000/test/mongo
 ## 📁 Estrutura de Arquivos Adicionados
 
 ```
-almox-sms/
+PLUCKLOG-sms/
 ├── .env                    # Variáveis de ambiente locais
 ├── Procfile               # Configuração Render
 ├── DEPLOY_RENDER.md       # Este arquivo
@@ -272,7 +272,7 @@ app = create_app()
 with app.app_context():
     admin = Usuario(
         username='admin',
-        email='admin@almoxsms.com',
+        email='admin@PLUCKLOGsms.com',
         nome_completo='Administrador do Sistema',
         nivel_acesso='super_admin',
         ativo=True

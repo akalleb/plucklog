@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { AlertCircle, ArrowLeftRight, CheckCircle2, Search } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { Page } from '@/components/ui/Page';
-import { apiUrl } from '@/lib/api';
+import { apiUrl, apiFetch } from '@/lib/api';
 
 interface ProdutoResumo {
   id: string;
@@ -76,7 +76,7 @@ export default function SaidaJustificadaPage() {
       router.replace('/');
       return;
     }
-    fetch(apiUrl('/api/sub_almoxarifados'), { headers: { 'X-User-Id': user.id } })
+    apiFetch('/api/sub_almoxarifados')
       .then(r => (r.ok ? r.json() : []))
       .then(setSubAlmoxarifados)
       .catch(() => setSubAlmoxarifados([]));
@@ -92,9 +92,7 @@ export default function SaidaJustificadaPage() {
     const mySeq = ++searchSeq.current;
     setSearching(true);
     const t = setTimeout(() => {
-      fetch(apiUrl(`/api/produtos/search?q=${encodeURIComponent(produtoQuery.trim())}`), {
-        headers: { 'X-User-Id': user.id }
-      })
+      apiFetch(`/api/produtos/search?q=${encodeURIComponent(produtoQuery.trim())}`)
         .then(async r => (r.ok ? r.json() : []))
         .then((data: ProdutoResumo[]) => {
           if (mySeq !== searchSeq.current) return;
@@ -119,7 +117,7 @@ export default function SaidaJustificadaPage() {
       return;
     }
     if (!user?.id) return;
-    fetch(apiUrl(`/api/produtos/${encodeURIComponent(produtoSelected.id)}`), { headers: { 'X-User-Id': user.id } })
+    apiFetch(`/api/produtos/${encodeURIComponent(produtoSelected.id)}`)
       .then(async r => (r.ok ? r.json() : null))
       .then((data: ProdutoDetalhes | null) => setProdutoDetalhes(data))
       .catch(() => setProdutoDetalhes(null));
@@ -210,16 +208,15 @@ export default function SaidaJustificadaPage() {
       if (dataMov) {
         payload.data_movimentacao = new Date(dataMov).toISOString();
       }
-      const res = await fetch(apiUrl('/api/movimentacoes/saida_justificada'), {
+      const res = await apiFetch('/api/movimentacoes/saida_justificada', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-User-Id': user.id },
         body: JSON.stringify(payload),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.detail || 'Erro ao registrar saída justificada');
 
       if (produtoSelected) {
-        const refreshed = await fetch(apiUrl(`/api/produtos/${encodeURIComponent(produtoSelected.id)}`), { headers: { 'X-User-Id': user.id } })
+        const refreshed = await apiFetch(`/api/produtos/${encodeURIComponent(produtoSelected.id)}`)
           .then(r => (r.ok ? r.json() : null))
           .catch(() => null);
         if (refreshed) setProdutoDetalhes(refreshed);

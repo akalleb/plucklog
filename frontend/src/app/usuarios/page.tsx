@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Users, Search, Plus, Trash2, Edit2, Mail, Briefcase, MapPin } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { Loading } from '@/components/ui/Page';
-import { apiUrl } from '@/lib/api';
+import { apiUrl, apiFetch } from '@/lib/api';
 
 interface User {
   id: string;
@@ -104,16 +104,15 @@ export default function UsuariosPage() {
     }
   }, [formData.central_id, formData.role, locations, user]);
 
-  const fetchData = async (userId: string) => {
+  const fetchData = async (_userId: string) => {
     try {
-      const headers = { 'X-User-Id': userId };
       const [resUsers, resCentrais, resAlmox, resSubs, resSets, resCats] = await Promise.all([
-        fetch(apiUrl('/api/usuarios'), { headers }),
-        fetch(apiUrl('/api/centrais'), { headers }),
-        fetch(apiUrl('/api/almoxarifados'), { headers }),
-        fetch(apiUrl('/api/sub_almoxarifados'), { headers }),
-        fetch(apiUrl('/api/setores'), { headers }),
-        fetch(apiUrl('/api/categorias'))
+        apiFetch('/api/usuarios'),
+        apiFetch('/api/centrais'),
+        apiFetch('/api/almoxarifados'),
+        apiFetch('/api/sub_almoxarifados'),
+        apiFetch('/api/setores'),
+        apiFetch('/api/categorias')
       ]);
       
       if (resUsers.ok) setUsers(await resUsers.json());
@@ -156,7 +155,7 @@ export default function UsuariosPage() {
   const handleDelete = async (id: string) => {
     if (!confirm('Tem certeza que deseja excluir este usuário?')) return;
     try {
-      const res = await fetch(apiUrl(`/api/usuarios/${id}`), { method: 'DELETE' });
+      const res = await apiFetch(`/api/usuarios/${id}`, { method: 'DELETE' });
       if (res.ok && user) fetchData(user.id);
     } catch {
       alert('Erro ao excluir');
@@ -205,9 +204,8 @@ export default function UsuariosPage() {
         }
       }
 
-      const res = await fetch(url, {
+      const res = await apiFetch(url.replace(apiUrl(''), ''), {
         method: method,
-        headers: { 'Content-Type': 'application/json', 'X-User-Id': user.id },
         body: JSON.stringify(payload)
       });
       

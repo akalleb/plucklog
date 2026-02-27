@@ -1,0 +1,51 @@
+// badge
+
+.badge {
+  line-height: 0.75;
+}
+
+@each $color, $value in $theme-colors {
+  .badge-#{$color} {
+    background-color: $value;
+    color: $white;
+  }
+
+  .badge-label-#{$color} {
+    background-color: rgba($value, 0.15);
+    color: $value;
+  }
+
+  .badge-outline-#{$color} {
+    background-color: transparent;
+    border: 1px solid $value;
+    color: $value;
+  }
+
+  .badge-text-#{$color} {
+    background-color: transparent;
+    color: $value;
+  }
+}
+
+.badge-circle,
+.badge-square {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 2em;
+  width: 2em;
+  line-height: 0;
+}
+
+.badge-circle {
+  border-radius: 50%;
+}
+
+.badge-light {
+  color: var(--#{$prefix}body-color);
+  background-color: var(--#{$prefix}light);
+}
+.badge-outline-light {
+  color: var(--#{$prefix}body-bg);
+  border-color: var(--#{$prefix}body-bg);
+}

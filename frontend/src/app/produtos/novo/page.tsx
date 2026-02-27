@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { PackagePlus, Save, ArrowLeft, Wand2, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { apiUrl } from '@/lib/api';
+import { apiUrl, apiFetch } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 
 interface Categoria {
@@ -35,8 +35,8 @@ export default function NovoProdutoPage() {
   });
 
   useEffect(() => {
-    fetch(apiUrl('/api/categorias'))
-      .then(res => res.json())
+    apiFetch('/api/categorias')
+      .then(res => res.ok ? res.json() : [])
       .then(data => setCategorias(data))
       .catch(err => console.error(err));
   }, []);
@@ -45,7 +45,7 @@ export default function NovoProdutoPage() {
     if (authLoading) return;
     if (!user) return;
 
-    fetch(apiUrl('/api/centrais'), { headers: { 'X-User-Id': user.id } })
+    apiFetch('/api/centrais')
       .then(async (res) => (res.ok ? res.json() : []))
       .then((data: Central[]) => {
         setCentrais(data);
@@ -66,9 +66,8 @@ export default function NovoProdutoPage() {
 
   const gerarCodigo = async () => {
     try {
-      const res = await fetch(apiUrl('/api/produtos/gerar-codigo'), {
+      const res = await apiFetch('/api/produtos/gerar-codigo', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ categoria_id: formData.categoria_id })
       });
       const data = await res.json();
@@ -88,9 +87,8 @@ export default function NovoProdutoPage() {
         alert('Selecione a central');
         return;
       }
-      const res = await fetch(apiUrl('/api/produtos'), {
+      const res = await apiFetch('/api/produtos', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(user ? { 'X-User-Id': user.id } : {}) },
         body: JSON.stringify(formData)
       });
       const data = await res.json();

@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { AlertCircle, CheckCircle2, Filter, Search, ShoppingCart, Trash2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { Loading, Page } from '@/components/ui/Page';
-import { apiUrl } from '@/lib/api';
+import { apiUrl, apiFetch } from '@/lib/api';
 
 type DemandaItem = {
   produto_id: string;
@@ -93,9 +93,8 @@ export default function DemandasPage() {
     });
   }, []);
 
-  const loadProdutoInfo = useCallback(async (uid: string, produtoId: string) => {
-    const headers = { 'X-User-Id': uid };
-    const res = await fetch(apiUrl(`/api/produtos/${encodeURIComponent(produtoId)}`), { headers });
+  const loadProdutoInfo = useCallback(async (_uid: string, produtoId: string) => {
+    const res = await apiFetch(`/api/produtos/${encodeURIComponent(produtoId)}`);
     const data: unknown = await res.json().catch(() => ({}));
     if (!res.ok) return { id: produtoId, nome: produtoId, codigo: '-' };
     if (!isRecord(data)) return { id: produtoId, nome: produtoId, codigo: '-' };
@@ -105,9 +104,8 @@ export default function DemandasPage() {
   }, []);
 
   const loadEstoqueSetor = useCallback(
-    async (uid: string, setorId: string) => {
-      const headers = { 'X-User-Id': uid };
-      const res = await fetch(apiUrl(`/api/estoque/setor/${encodeURIComponent(setorId)}`), { headers });
+    async (_uid: string, setorId: string) => {
+      const res = await apiFetch(`/api/estoque/setor/${encodeURIComponent(setorId)}`);
       const data: unknown = await res.json().catch(() => ({ items: [] }));
       if (!res.ok) return { setorId, map: {} as Record<string, number>, infoMap: {} as Record<string, ProdutoInfo> };
       const map: Record<string, number> = {};
@@ -129,10 +127,9 @@ export default function DemandasPage() {
   );
 
   const refresh = useCallback(async (uid: string, selectedStatus: string) => {
-    const headers = { 'X-User-Id': uid };
     const qs = new URLSearchParams({ per_page: '50', page: '1' });
     if (selectedStatus !== 'todas') qs.set('status', selectedStatus);
-    const res = await fetch(apiUrl(`/api/demandas?${qs.toString()}`), { headers });
+    const res = await apiFetch(`/api/demandas?${qs.toString()}`);
     const data = await res.json().catch(() => ({ items: [] }));
     if (!res.ok) throw new Error(data.detail || 'Erro ao carregar demandas');
     const items: unknown[] = Array.isArray(data.items) ? data.items : [];
@@ -163,8 +160,7 @@ export default function DemandasPage() {
 
     setDeletingId(demanda.id);
     try {
-      const headers = { 'X-User-Id': user.id };
-      const res = await fetch(apiUrl(`/api/demandas/${demanda.id}`), { method: 'DELETE', headers });
+      const res = await apiFetch(`/api/demandas/${demanda.id}`, { method: 'DELETE' });
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error((data && typeof data.detail === 'string' && data.detail) || 'Erro ao excluir demanda');
       setDemandas(prev => prev.filter(d => d.id !== demanda.id));

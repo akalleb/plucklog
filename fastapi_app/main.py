@@ -1,4 +1,5 @@
-from fastapi import FastAPI, HTTPException, Query, Depends, Header
+from fastapi import FastAPI, HTTPException, Query, Depends, Header, status
+from fastapi.security import OAuth2PasswordBearer
 from fastapi.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from bson import ObjectId
@@ -10,12 +11,21 @@ from pydantic import BaseModel, Field
 from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
 from pymongo.errors import DuplicateKeyError
+from jose import JWTError, jwt
+from werkzeug.security import generate_password_hash, check_password_hash
 
 # Carregar variáveis de ambiente
 load_dotenv()
 
+# Configuração JWT
+SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key-change-in-production")
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 # 24 horas
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login")
+
 # Configuração
-app = FastAPI(title="Almox SMS API", version="2.0.0")
+app = FastAPI(title="PluckLog API", version="2.0.0")
 
 # CORS (Permitir acesso do Next.js)
 cors_allow_origins = (os.getenv("CORS_ALLOW_ORIGINS") or "").strip()
@@ -29,7 +39,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=allow_origins,
     allow_origin_regex=cors_allow_origin_regex if allow_origins == ["*"] else None,
-    allow_credentials=False,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -275,12 +285,34 @@ async def _produto_id_candidates(produto_ref: Any) -> List[Any]:
 async def _find_one_by_id(coll: str, value: str) -> Optional[Dict[str, Any]]:
     return await db.db[coll].find_one(_build_id_query(value))
 
-async def get_current_user(x_user_id: Optional[str] = Header(default=None, alias="X-User-Id")) -> Dict[str, Any]:
-    if not x_user_id:
-        raise HTTPException(status_code=401, detail="Usuário não autenticado")
-    u = await _find_one_by_id("usuarios", x_user_id)
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.now(timezone.utc) + expires_delta
+    else:
+        expire = datetime.now(timezone.utc) + timedelta(minutes=15)
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+async def get_current_user(token: str = Depends(oauth2_scheme)) -> Dict[str, Any]:
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Credenciais inválidas",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id: str = payload.get("sub")
+        if user_id is None:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+
+    u = await _find_one_by_id("usuarios", user_id)
     if not u or not u.get("ativo", True):
-        raise HTTPException(status_code=401, detail="Usuário não autenticado")
+        raise credentials_exception
+        
     role = _normalize_role(u.get("role") or u.get("nivel_acesso") or "operador")
     return {
         "id": str(u.get("_id")),
@@ -3362,15 +3394,26 @@ async def login_auth(payload: LoginRequest):
         raise HTTPException(status_code=401, detail="Usuário ou senha inválidos")
 
     computed_central_id = await _compute_user_central_id(u.get("role") or "operador", u.get("scope_id"), u.get("central_id"), strict=False)
+    
+    user_id = _public_id(u) or str(u.get("_id"))
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user_id, "role": u.get("role") or "operador"}, expires_delta=access_token_expires
+    )
+
     return {
-        "id": _public_id(u) or str(u.get("_id")),
-        "nome": u.get("nome"),
-        "email": u.get("email"),
-        "role": u.get("role") or "operador",
-        "scope_id": _norm_id(u.get("scope_id")),
-        "central_id": computed_central_id,
-        "categoria_ids": [str(c) for c in (u.get("categoria_ids") or []) if c],
-        "ativo": u.get("ativo", True),
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": {
+            "id": user_id,
+            "nome": u.get("nome"),
+            "email": u.get("email"),
+            "role": u.get("role") or "operador",
+            "scope_id": _norm_id(u.get("scope_id")),
+            "central_id": computed_central_id,
+            "categoria_ids": [str(c) for c in (u.get("categoria_ids") or []) if c],
+            "ativo": u.get("ativo", True),
+        },
     }
 
 async def _normalize_categoria_ids(values: Optional[List[str]]) -> Optional[List[str]]:

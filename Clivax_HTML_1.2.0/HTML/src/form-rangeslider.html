@@ -1,0 +1,185 @@
+@@include("partials/main.html")
+
+<head>
+
+    @@include("partials/title-meta.html", {"title": "Range Slider"})
+
+    <!-- ION Slider -->
+    <link href="assets/libs/ion-rangeslider/css/ion.rangeSlider.min.css" rel="stylesheet" type="text/css" />
+
+    @@include("partials/head-css.html")
+
+</head>
+
+@@include("partials/body.html")
+
+<!-- Begin page -->
+<div id="layout-wrapper">
+
+    @@include("partials/menu.html")
+
+    <!-- ============================================================== -->
+    <!-- Start right Content here -->
+    <!-- ============================================================== -->
+    <div class="main-content">
+
+        <div class="page-content">
+            <div class="container-fluid">
+
+                @@include("partials/page-title.html", {"pagetitle": "Elements", "title": "Range Slider"})
+
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h4 class="card-title">ION Range slider</h4>
+                            </div>
+                            <div class="card-body">
+                                <p class="text-muted">Cool, comfortable, responsive and easily customizable range slider</p>
+                                <div class="d-grid gap-3">
+                                    <div class="row">
+                                        <div class="col-sm-4 col-lg-2">
+                                            <label class="col-form-label text-sm-end">Default</label>
+                                        </div>
+                                        <div class="col-sm-5 col-lg-6">
+                                            <input type="text" id="range_01">
+                                        </div>
+                                    </div>
+                                    <!-- end row -->
+                                    <div class="row">
+                                        <div class="col-sm-4 col-lg-2">
+                                            <label class="col-form-label text-sm-end">Min-Max</label>
+                                        </div>
+                                        <div class="col-sm-5 col-lg-6">
+                                            <input type="text" id="range_02">
+                                        </div>
+                                    </div>
+                                    <!-- end row -->
+                                    <div class="row">
+                                        <div class="col-sm-4 col-lg-2">
+                                            <label class="col-form-label text-sm-end">Prefix</label>
+                                        </div>
+                                        <div class="col-sm-5 col-lg-6">
+                                            <input type="text" id="range_03">
+                                        </div>
+                                    </div>
+                                    <!-- end row -->
+                                    <div class="row">
+                                        <div class="col-sm-4 col-lg-2">
+                                            <label class="col-form-label text-sm-end">Range</label>
+                                        </div>
+                                        <div class="col-sm-5 col-lg-6">
+                                            <input type="text" id="range_04">
+                                        </div>
+                                    </div>
+                                    <!-- end row -->
+                                    <div class="row">
+                                        <div class="col-sm-4 col-lg-2">
+                                            <label class="col-form-label text-sm-end">Step</label>
+                                        </div>
+                                        <div class="col-sm-5 col-lg-6">
+                                            <input type="text" id="range_05">
+                                        </div>
+                                    </div>
+                                    <!-- end row -->
+                                    <div class="row">
+                                        <div class="col-sm-4 col-lg-2">
+                                            <label class="col-form-label text-sm-end">Custom Values</label>
+                                        </div>
+                                        <div class="col-sm-5 col-lg-6">
+                                            <input type="text" id="range_06">
+                                        </div>
+                                    </div>
+                                    <!-- end row -->
+                                    <div class="row">
+                                        <div class="col-sm-4 col-lg-2">
+                                            <label class="col-form-label text-sm-end">Prettify Numbers</label>
+                                        </div>
+                                        <div class="col-sm-5 col-lg-6">
+                                            <input type="text" id="range_07">
+                                        </div>
+                                    </div>
+                                    <!-- end row -->
+                                    <div class="row">
+                                        <div class="col-sm-4 col-lg-2">
+                                            <label class="col-form-label text-sm-end">Disabled</label>
+                                        </div>
+                                        <div class="col-sm-5 col-lg-6">
+                                            <input type="text" id="range_08">
+                                        </div>
+                                    </div>
+                                    <!-- end row -->
+                                    <div class="row">
+                                        <div class="col-sm-4 col-lg-2">
+                                            <label class="col-form-label text-sm-end">Extra Example</label>
+                                        </div>
+                                        <div class="col-sm-5 col-lg-6">
+                                            <input type="text" id="range_09">
+                                        </div>
+                                    </div>
+                                    <!-- end row -->
+                                    <div class="row">
+                                        <div class="col-sm-4 col-lg-2">
+                                            <label class="col-form-label text-sm-end">Use decorate_both option</label>
+                                        </div>
+                                        <div class="col-sm-5 col-lg-6">
+                                            <input type="text" id="range_10">
+                                        </div>
+                                    </div>
+                                    <!-- end row -->
+                                    <div class="row">
+                                        <div class="col-sm-4 col-lg-2">
+                                            <label class="col-form-label text-sm-end">Postfixes</label>
+                                        </div>
+                                        <div class="col-sm-5 col-lg-6">
+                                            <input type="text" id="range_11">
+                                        </div>
+                                    </div>
+                                    <!-- end row -->
+                                    <div class="row">
+                                        <div class="col-sm-4 col-lg-2">
+                                            <label class="col-form-label text-sm-end">Hide</label>
+                                        </div>
+                                        <div class="col-sm-5 col-lg-6">
+                                            <input type="text" id="range_12">
+                                        </div>
+                                    </div>
+                                    <!-- end row -->
+                                </div>
+                                <!-- end grid -->
+                            </div>
+                            <!-- end card body -->
+                        </div>
+                        <!-- end card -->
+                    </div>
+                    <!-- end col -->
+                </div>
+                <!-- end row -->
+            </div>
+            <!-- container-fluid -->
+        </div>
+        <!-- End Page-content -->
+
+        @@include("partials/footer.html")
+    </div>
+    <!-- end main content-->
+
+</div>
+<!-- END layout-wrapper -->
+
+@@include("partials/right-sidebar.html")
+
+@@include("partials/vendor-scripts.html")
+
+
+<!-- Ion Range Slider-->
+<script src="assets/libs/ion-rangeslider/js/ion.rangeSlider.min.js"></script>
+
+<!-- Range slider init js-->
+<script src="assets/js/pages/range-sliders.init.js"></script>
+
+<script src="assets/js/app.js"></script>
+
+</body>
+
+</html>

@@ -1,0 +1,184 @@
+// apexcharts.scss
+
+.apex-charts {
+    min-height: 10px !important;
+    text {
+        font-family: $font-family-base !important;
+    }
+    .apexcharts-canvas {
+        margin: 0 auto;
+    }
+}
+
+.apexcharts-tooltip-title,
+.apexcharts-tooltip-text {
+    font-family: $font-family-base !important;
+}
+
+.apexcharts-tooltip {
+    border: 1px solid var(--#{$prefix}border-color) !important;
+    background-color: var(--#{$prefix}white) !important;
+    box-shadow: var(--#{$prefix}box-shadow) !important;
+    * {
+        font-family: $font-family-base !important;
+        color: $gray-600 !important;
+    }
+
+    .apexcharts-tooltip-title {
+        background-color: rgba(var(--#{$prefix}light-rgb), 0.75) !important;
+        border-bottom: 1px solid var(--#{$prefix}border-color) !important;
+    }
+}
+
+.apexcharts-legend-series {
+    font-weight: $font-weight-medium;
+}
+
+.apexcharts-gridline {
+    pointer-events: none;
+    stroke: $apex-grid-color;
+}
+
+.apexcharts-legend-text {
+    color: $gray-600 !important;
+    font-family: $font-family-base !important;
+    font-size: 13px !important;
+}
+
+.apexcharts-pie-label {
+    fill: $white !important;
+}
+
+.apexcharts-title-text,
+.apexcharts-subtitle-text {
+    fill: $gray-500;
+}
+
+.apexcharts-yaxis,
+.apexcharts-xaxis {
+    text {
+        font-family: $font-family-base !important;
+        fill: $gray-500;
+    }
+}
+
+.apexcharts-yaxis-title {
+    font-weight: 500;
+}
+
+.apexcharts-toolbar {
+    top: -52px !important;
+}
+
+// column dynamic loaded chart
+
+#dynamicloadedchart-wrap {
+    margin: 0px auto;
+    max-width: 800px;
+    position: relative;
+}
+
+.chart-box {
+    padding-left: 0;
+}
+
+#chart-year,
+#chart-quarter {
+    width: 96%;
+    max-width: 48%;
+    box-shadow: none;
+    padding-left: 0;
+    padding-top: 20px;
+    border: 1px solid var(--#{$prefix}border-color);
+}
+
+#chart-year {
+    float: left;
+    position: relative;
+    transition: 1s ease transform;
+    z-index: 3;
+    &.chart-quarter-activated {
+        transform: translateX(0);
+        transition: 1s ease transform;
+    }
+}
+
+#chart-quarter {
+    float: left;
+    position: relative;
+    z-index: -2;
+    transition: 1s ease transform;
+    &.active {
+        transition: 1.1s ease-in-out transform;
+        transform: translateX(0);
+        z-index: 1;
+    }
+}
+
+@media screen and (min-width: 480px) {
+    #chart-year {
+        transform: translateX(50%);
+    }
+    #chart-quarter {
+        transform: translateX(-50%);
+    }
+}
+
+// radar chart
+
+.apexcharts-radar-series {
+    polygon,
+    line {
+        stroke: var(--#{$prefix}border-color);
+        fill: var(--#{$prefix}white);
+    }
+}
+
+.apexcharts-pie {
+    circle,
+    line {
+        stroke: transparent;
+    }
+    text {
+        fill: var(--#{$prefix}body-color);
+    }
+}
+
+.apex-charts {
+    .apexcharts-xaxis,
+    .apexcharts-yaxis {
+        line {
+            stroke: var(--#{$prefix}border-color);
+        }
+    }
+
+    .apexcharts-xaxis-tick {
+        stroke: var(--#{$prefix}border-color);
+    }
+
+    .apexcharts-pie-series,
+    .apexcharts-bar-series,
+    apexcharts-plot-series {
+        path {
+            stroke: var(--#{$prefix}white);
+        }
+    }
+
+    .apexcharts-radialbar-track {
+        path {
+            stroke: var(--#{$prefix}light);
+        }
+    }
+
+    .apexcharts-boxPlot-series {
+        path {
+            stroke: var(--#{$prefix}border-color);
+        }
+    }
+
+    .apexcharts-treemap
+        rect {
+            stroke: var(--#{$prefix}white);
+        }
+    
+}

@@ -5,7 +5,7 @@ import { Truck, Send, Search, AlertCircle, CheckCircle2, ChevronDown, ChevronRig
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { Page } from '@/components/ui/Page';
-import { apiUrl } from '@/lib/api';
+import { apiUrl, apiFetch } from '@/lib/api';
 
 interface Central {
   id: string;
@@ -79,14 +79,13 @@ export default function DistribuicaoPage() {
   useEffect(() => {
     if (authLoading) return;
     if (!user) return;
-    const headers = { 'X-User-Id': user.id };
     const includeAll = ['super_admin', 'admin_central', 'gerente_almox', 'resp_sub_almox'].includes(user.role);
     const qsCentrais = includeAll ? '?include_all=1' : '';
     const qsInter = includeInterCentral ? '?include_inter_central=1' : '';
     Promise.all([
-      fetch(apiUrl(`/api/centrais${qsCentrais}`), { headers }).then(r => (r.ok ? r.json() : [])),
-      fetch(apiUrl(`/api/sub_almoxarifados${qsInter}`), { headers }).then(r => (r.ok ? r.json() : [])),
-      fetch(apiUrl(`/api/setores${qsInter}`), { headers }).then(r => (r.ok ? r.json() : [])),
+      apiFetch(`/api/centrais${qsCentrais}`).then(r => (r.ok ? r.json() : [])),
+      apiFetch(`/api/sub_almoxarifados${qsInter}`).then(r => (r.ok ? r.json() : [])),
+      apiFetch(`/api/setores${qsInter}`).then(r => (r.ok ? r.json() : [])),
     ]).then(([c, s, sets]) => {
       setCentrais(c);
       setSubAlmoxarifados(s);
@@ -114,9 +113,7 @@ export default function DistribuicaoPage() {
     const mySeq = ++searchSeq.current;
     setSearching(true);
     const t = setTimeout(() => {
-      fetch(apiUrl(`/api/produtos/search?q=${encodeURIComponent(produtoQuery.trim())}`), {
-        headers: { 'X-User-Id': user.id }
-      })
+      apiFetch(`/api/produtos/search?q=${encodeURIComponent(produtoQuery.trim())}`)
         .then(async r => (r.ok ? r.json() : []))
         .then((data: ProdutoResumo[]) => {
           if (mySeq !== searchSeq.current) return;
@@ -141,7 +138,7 @@ export default function DistribuicaoPage() {
       return;
     }
     if (!user) return;
-    fetch(apiUrl(`/api/produtos/${encodeURIComponent(produtoSelected.id)}`), { headers: { 'X-User-Id': user.id } })
+    apiFetch(`/api/produtos/${encodeURIComponent(produtoSelected.id)}`)
       .then(async r => (r.ok ? r.json() : null))
       .then((data: ProdutoDetalhes | null) => setProdutoDetalhes(data))
       .catch(() => setProdutoDetalhes(null));
@@ -253,9 +250,8 @@ export default function DistribuicaoPage() {
 
       if (!formData.destino_id) throw new Error('Selecione o destino');
 
-      const res = await fetch(apiUrl('/api/movimentacoes/distribuicao'), {
+      const res = await apiFetch('/api/movimentacoes/distribuicao', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-User-Id': user.id },
         body: JSON.stringify({
           produto_id: produtoSelected.id,
           quantidade: qtd,

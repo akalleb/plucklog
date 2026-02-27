@@ -1,0 +1,60 @@
+//maker
+
+.marker {
+    display: inline-block;
+    color: var(--#{$prefix}secondary-bg);
+    margin: 0.25rem;
+    box-shadow: 0 0 0 2px var(--#{$prefix}white);
+}
+
+.marker-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    background-color: currentColor;
+    border-radius: 50%;
+    &.marker-sm {
+        width: 0.35rem !important;
+        height: 0.35rem !important;
+    }
+
+    &.marker-lg {
+        width: 0.75rem !important;
+        height: 0.75rem !important;
+    }
+}
+
+.marker-circle {
+    width: calc(0.5rem * 0.3 + 0.5rem);
+    height: calc(0.5rem * 0.3 + 0.5rem);
+    background-color: var(--#{$prefix}white);
+    border: 2px solid currentColor;
+    border-radius: 50%;
+
+    &.marker-sm {
+        width: calc(0.35rem * 0.3 + 0.35rem) !important;
+        height: calc(0.35rem * 0.3 + 0.35rem) !important;
+    }
+
+    &.marker-lg {
+        width: calc(0.75rem * 0.3 + 0.75rem) !important;
+        height: calc(0.75rem * 0.3 + 0.75rem) !important;
+    }
+}
+
+.marker-pill {
+    width: 1.75rem;
+    height: 0.5rem;
+    background-color: currentColor;
+    border-radius: calc(0.5 * 0.5rem);
+
+    &.marker-sm {
+        width: 1.35rem;
+        height: 0.35rem;
+    }
+
+    &.marker-lg {
+        width: 2.35rem;
+        height: 0.75rem;
+        border-radius: calc(0.75 * 0.5rem);
+    }
+}

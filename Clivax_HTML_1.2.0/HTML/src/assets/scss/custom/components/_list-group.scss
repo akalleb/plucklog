@@ -1,0 +1,39 @@
+// List-group
+
+@each $color, $value in $theme-colors {
+    .list-group-item-#{$color} {
+        background-color: rgba($value, 0.15);
+        color: $value;
+        border-color: var(--#{$prefix}border-color);
+        &:hover {
+            background-color: rgba($value, 0.25);
+            color: $value;
+        }
+    }
+}
+
+.list-group-item-light {
+    color: $dark;
+    &:hover {
+        color: $dark;
+    }
+}
+
+.list-group-item-action {
+    &:active {
+        background-color: $primary;
+        color: $white;
+    }
+}
+
+.list-group-item {
+    &.list-group-item-action {
+        &.active,
+        &:active {
+            h3,h4,h5{
+                color: $white !important;
+            }
+            color: $white !important;
+        }
+    }
+}

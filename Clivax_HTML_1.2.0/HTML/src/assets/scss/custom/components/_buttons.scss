@@ -1,0 +1,239 @@
+// buttons
+
+button,
+a {
+  outline: none !important;
+}
+
+.btn {
+  position: relative;
+
+  &:active {
+    border-color: transparent;
+  }
+  &.show,
+  &:first-child:active {
+    border-color: transparent;
+  }
+}
+
+// Rounded Buttons
+.btn-rounded {
+  border-radius: 30px;
+}
+
+.btn-dark,
+.btn-secondary {
+  color: $gray-200;
+}
+
+.btn-outline-light {
+  color: $gray-900;
+}
+
+@each $color, $value in $theme-colors {
+  .btn-#{$color} {
+    color: $white !important;
+    &:hover,
+    &:active,
+    &.active,
+    &:focus,
+    &.disabled {
+      color: $white !important;
+    }
+  }
+
+  .btn-outline-#{$color} {
+    &:hover,
+    &:active {
+      color: $white !important;
+    }
+  }
+
+  .btn-label-#{$color} {
+    background-color: rgba(($value), 0.15);
+    border-color: transparent !important;
+    color: $value;
+
+    &:hover,
+    &:active,
+    &:focus {
+      background-color: $value !important;
+      color: $white !important;
+    }
+  }
+
+  .btn-flat-#{$color} {
+    background-color: var(--#{$prefix}light);
+    color: var(--#{$prefix}body-color);
+    &:hover,
+    &:active,
+    &:focus {
+      background-color: $value !important;
+      color: $white !important;
+      border-color: transparent !important;
+    }
+  }
+
+  .btn-text-#{$color} {
+    background-color: transparent;
+    color: $value;
+    &:hover,
+    &:focus {
+      background-color: rgba(($value), 0.15);
+      border-color: rgba(($value), 0.15) !important;
+      color: $value;
+    }
+
+    &:active {
+      background-color: $value !important;
+      color: $white !important;
+    }
+  }
+}
+
+.btn-text-light{
+  &:active{
+    background-color: var(--#{$prefix}light) !important;
+  }
+}
+
+.btn-flat-light {
+  &:hover,
+  &:active,
+  &:focus {
+    background-color: var(--#{$prefix}light);
+    color: $black !important;
+  }
+}
+
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: calc($grid-gutter-width + 0.8rem + 2px);
+  width: calc($grid-gutter-width + 0.8rem + 2px);
+  padding: 0;
+  font-size: 1rem !important;
+}
+
+.btn-circle {
+  border-radius: 50% !important;
+}
+
+.btn-icon.btn-sm {
+  width: calc($grid-gutter-width + 0.5rem + 2px) !important;
+  height: calc($grid-gutter-width + 0.5rem + 2px) !important;
+  font-size: 0.8rem !important;
+}
+
+.btn-icon.btn-lg {
+  width: calc($grid-gutter-width + 1.2rem + 2px) !important;
+  height: calc($grid-gutter-width + 1.2rem + 2px) !important;
+  font-size: 1.2rem !important;
+}
+
+.btn-icon > svg {
+  font-size: 1rem;
+  height: 1em;
+}
+
+.btn-wide {
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+.btn-wider {
+  padding-left: 1.2rem;
+  padding-right: 1.2rem;
+}
+
+.btn-widest {
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+}
+
+.btn-tall {
+  padding-top: 0.525rem;
+  padding-bottom: 0.525rem;
+}
+
+.btn-taller {
+  padding-top: 0.675rem;
+  padding-bottom: 0.675rem;
+}
+
+.btn-tallest {
+  padding-top: 0.875rem;
+  padding-bottom: 0.875rem;
+}
+
+.btn-marker {
+  display: block;
+  position: absolute !important;
+  z-index: 1;
+  top: -0.75rem !important;
+  right: -0.75rem !important;
+}
+
+.btn .badge {
+  position: relative;
+  top: -1px;
+}
+
+.btn-counter {
+  box-shadow: 0 0 0 2px var(--#{$prefix}white);
+}
+
+.btn-light {
+  color: var(--#{$prefix}body-color);
+  background-color: var(--#{$prefix}light);
+  border-color: var(--#{$prefix}border-color);
+  &:hover,
+  &:active {
+    background-color: var(--#{$prefix}body-bg) !important;
+    color: var(--#{$prefix}body-color) !important;
+    border-color: var(--#{$prefix}border-color);
+  }
+}
+
+.btn-dark {
+  color: $white;
+  background-color: var(--#{$prefix}dark);
+  border-color: transparent;
+  &:hover,
+  &:active {
+    background-color: var(--#{$prefix}dark) !important;
+    color: $white;
+    border-color: transparent;
+  }
+}
+
+.btn-outline-light {
+  color: var(--#{$prefix}body-bg);
+  border-color: var(--#{$prefix}body-bg);
+  &:hover,
+  &:active {
+    background-color: var(--#{$prefix}body-bg) !important;
+    color: var(--#{$prefix}body-color);
+    border-color: var(--#{$prefix}border-color);
+  }
+}
+
+.btn-label-light {
+  &:hover,
+  &:active {
+    background-color: var(--#{$prefix}body-bg) !important;
+    color: var(--#{$prefix}body-color);
+    border-color: var(--#{$prefix}border-color);
+  }
+}
+
+
+.btn-check:checked+.btn{
+  color: $white;
+}
+
+.btn-label-dark{
+  color: var(--#{$prefix}body-color);
+}

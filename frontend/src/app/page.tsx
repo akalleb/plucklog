@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { Page } from '@/components/ui/Page';
 import { useToast } from '@/components/ui/ToastProvider';
-import { apiUrl } from '@/lib/api';
+import { apiUrl, apiFetch } from '@/lib/api';
 
 // Tipagem dos dados vindos da API FastAPI
 interface EstoqueItem {
@@ -70,9 +70,7 @@ export default function Dashboard() {
     setLoading(true);
     try {
       const perPage = searchTerm.trim() ? 100 : 10;
-      const res = await fetch(apiUrl(`/api/estoque/hierarquia?page=${page}&per_page=${perPage}&produto=${encodeURIComponent(searchTerm)}`), {
-        headers: { 'X-User-Id': user.id }
-      });
+      const res = await apiFetch(`/api/estoque/hierarquia?page=${page}&per_page=${perPage}&produto=${encodeURIComponent(searchTerm)}`);
       if (!res.ok) throw new Error('Falha ao buscar dados');
       const json = await res.json();
       setData(json);
@@ -93,8 +91,11 @@ export default function Dashboard() {
       router.replace('/setor');
       return;
     }
-    fetch(apiUrl('/api/dashboard/stats'), { headers: { 'X-User-Id': user.id } })
-      .then(res => res.json())
+    apiFetch('/api/dashboard/stats')
+      .then(res => {
+        if (!res.ok) throw new Error('Falha ao carregar estatísticas');
+        return res.json();
+      })
       .then(data => setStats(data))
       .catch(() => toast.error('Falha ao carregar estatísticas', 'Dashboard'));
   }, [authLoading, user?.id, user?.role, router, toast]);
@@ -117,10 +118,7 @@ export default function Dashboard() {
     setProdutosLoading(true);
     try {
       const q = produtosQuery.trim();
-      const res = await fetch(
-        apiUrl(`/api/produtos/search?q=${encodeURIComponent(q)}&limit=50&page=${produtosPage}`),
-        { headers: { 'X-User-Id': user.id } },
-      );
+      const res = await apiFetch(`/api/produtos/search?q=${encodeURIComponent(q)}&limit=50&page=${produtosPage}`);
       const json = await res.json().catch(() => []);
       if (!res.ok) {
         throw new Error((json && json.detail) || 'Falha ao buscar produtos');

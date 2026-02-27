@@ -22,3 +22,5 @@ uvicorn
 motor
 mangum
 python-multipart
+python-jose[cryptography]
+passlib[bcrypt]

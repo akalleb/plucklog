@@ -1,0 +1,140 @@
+@@include("partials/main.html")
+
+<head>
+
+    @@include("partials/title-meta.html", {"title": "Form Datetime Picker"})
+
+    <link href="assets/libs/bootstrap-datetime-picker/css/bootstrap-datetimepicker.min.css" rel="stylesheet">
+
+    @@include("partials/head-css.html")
+
+</head>
+
+@@include("partials/body.html")
+
+<!-- Begin page -->
+<div id="layout-wrapper">
+
+    @@include("partials/menu.html")
+
+    <!-- ============================================================== -->
+    <!-- Start right Content here -->
+    <!-- ============================================================== -->
+    <div class="main-content">
+
+        <div class="page-content">
+            <div class="container-fluid">
+
+                @@include("partials/page-title.html", {"pagetitle": "Forms", "title": "Datetime Picker"})
+
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header card-header-bordered">
+                                <h3 class="card-title">Date time picker</h3>
+                            </div>
+                            <div class="card-body">
+                                <p class="text-muted">
+                                    Bootstrap form component to handle date and time data. For more info please visit the plugin's <a href="http://www.malot.fr/bootstrap-datetimepicker/demo.php" target="_blank">demo page</a> or
+                                    <a href="http://github.com/smalot/bootstrap-datetimepicker" target="_blank">Github repository</a>.
+                                </p>
+                                <hr />
+                                <div class="d-grid gap-3">
+                                    <div class="row">
+                                        <div class="col-sm-4 col-lg-2">
+                                            <label class="col-form-label text-sm-end">Basic demo</label>
+                                        </div>
+                                        <div class="col-sm-5 col-lg-6">
+                                            <input type="text" class="form-control" placeholder="Select date" id="datetimepicker-1" />
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-sm-4 col-lg-2">
+                                            <label class="col-form-label text-sm-end">Helper buttons</label>
+                                        </div>
+                                        <div class="col-sm-5 col-lg-6">
+                                            <input type="text" class="form-control" placeholder="Select date" id="datetimepicker-2" />
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-sm-4 col-lg-2">
+                                            <label class="col-form-label text-sm-end">Meridian format</label>
+                                        </div>
+                                        <div class="col-sm-5 col-lg-6">
+                                            <input type="text" class="form-control" placeholder="Select date" id="datetimepicker-3" />
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-sm-4 col-lg-2">
+                                            <label class="col-form-label text-sm-end">Week disabled</label>
+                                        </div>
+                                        <div class="col-sm-5 col-lg-4">
+                                            <div class="mb-2"><input type="text" class="form-control" placeholder="Select date" id="datetimepicker-4" /></div>
+                                            <p class="mb-0">Disable selected week columns</p>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-sm-4 col-lg-2">
+                                            <label class="col-form-label text-sm-end">Date only</label>
+                                        </div>
+                                        <div class="col-sm-5 col-lg-6">
+                                            <input type="text" class="form-control" placeholder="Select date" id="datetimepicker-5" />
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-sm-4 col-lg-2">
+                                            <label class="col-form-label text-sm-end">Time only</label>
+                                        </div>
+                                        <div class="col-sm-5 col-lg-6">
+                                            <input type="text" class="form-control" placeholder="Select date" id="datetimepicker-6" />
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-sm-4 col-lg-2">
+                                            <label class="col-form-label text-sm-end">Locale</label>
+                                        </div>
+                                        <div class="col-sm-5 col-lg-6">
+                                            <input type="text" class="form-control" placeholder="Select date" id="datetimepicker-7" />
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-sm-4 col-lg-2">
+                                            <label class="col-form-label text-sm-end">Inline</label>
+                                        </div>
+                                        <div class="col-sm-5 col-lg-4">
+                                            <div class="d-grid gap-3">
+                                                <div id="datetimepicker-8"></div>
+                                                <div id="datetimepicker-9"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- end row -->
+            </div> <!-- container-fluid -->
+        </div>
+        <!-- End Page-content -->
+
+        @@include("partials/footer.html")
+
+    </div>
+    <!-- end main content-->
+
+</div>
+<!-- END layout-wrapper -->
+
+@@include("partials/right-sidebar.html")
+
+@@include("partials/vendor-scripts.html")
+
+<!-- Bootstrap datepicker -->
+<script src="assets/libs/bootstrap-datetime-picker/js/bootstrap-datetimepicker.min.js"></script>
+<script src="assets/js/pages/form-datetimepicker.init.js"></script>
+<script src="assets/js/app.js"></script>
+
+</body>
+
+</html>

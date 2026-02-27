@@ -1,13 +1,13 @@
 services:
   - type: web
-    name: pluckhub
+    name: plucklog
     env: docker
     envVars:
       - key: MONGO_URI
         sync: false
       - key: MONGO_DB
-        value: almox_sms
+        value: plucklog_db
       - key: SECRET_KEY
         generateValue: true
-      - key: ALMOX_FASTAPI_HOSTPORT
+      - key: PLUCKLOG_FASTAPI_HOSTPORT
         value: 127.0.0.1:8000

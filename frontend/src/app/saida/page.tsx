@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { MapPin, Search } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { Loading, Page } from '@/components/ui/Page';
-import { apiUrl } from '@/lib/api';
+import { apiUrl, apiFetch } from '@/lib/api';
 
 interface Central {
   id: string;
@@ -28,10 +28,9 @@ export default function SaidaPage() {
   useEffect(() => {
     if (authLoading) return;
     if (!user) return;
-    const headers = { 'X-User-Id': user.id };
     Promise.all([
-      fetch(apiUrl('/api/centrais'), { headers }).then(r => (r.ok ? r.json() : [])),
-      fetch(apiUrl('/api/setores'), { headers }).then(r => (r.ok ? r.json() : [])),
+      apiFetch('/api/centrais').then(r => (r.ok ? r.json() : [])),
+      apiFetch('/api/setores').then(r => (r.ok ? r.json() : [])),
     ])
       .then(([c, sets]) => {
         setCentrais(c);

@@ -5,7 +5,7 @@ import { PackagePlus, Save, Search, AlertCircle, CheckCircle2 } from 'lucide-rea
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { Page } from '@/components/ui/Page';
-import { apiUrl } from '@/lib/api';
+import { apiUrl, apiFetch } from '@/lib/api';
 
 interface Central {
   id: string;
@@ -102,9 +102,7 @@ export default function NovaEntradaPage() {
     const mySeq = ++searchSeq.current;
     setSearching(true);
     const t = setTimeout(() => {
-      fetch(apiUrl(`/api/produtos/search?q=${encodeURIComponent(produtoQuery.trim())}`), {
-        headers: { 'X-User-Id': user.id }
-      })
+      apiFetch(`/api/produtos/search?q=${encodeURIComponent(produtoQuery.trim())}`)
         .then(async r => (r.ok ? r.json() : []))
         .then((data: ProdutoResumo[]) => {
           if (mySeq !== searchSeq.current) return;
@@ -126,11 +124,10 @@ export default function NovaEntradaPage() {
   useEffect(() => {
     if (authLoading) return;
     if (!user) return;
-    const headers = { 'X-User-Id': user.id };
     Promise.all([
-      fetch(apiUrl('/api/centrais'), { headers }).then(r => r.ok ? r.json() : []),
-      fetch(apiUrl('/api/almoxarifados'), { headers }).then(r => r.ok ? r.json() : []),
-      fetch(apiUrl('/api/sub_almoxarifados'), { headers }).then(r => r.ok ? r.json() : [])
+      apiFetch('/api/centrais').then(r => r.ok ? r.json() : []),
+      apiFetch('/api/almoxarifados').then(r => r.ok ? r.json() : []),
+      apiFetch('/api/sub_almoxarifados').then(r => r.ok ? r.json() : [])
     ]).then(([c, a, s]) => {
       setCentrais(c);
       setAlmoxarifados(a);
@@ -229,9 +226,8 @@ export default function NovaEntradaPage() {
         data_validade: dataValidade
       };
 
-      const res = await fetch(apiUrl('/api/movimentacoes/entrada'), {
+      const res = await apiFetch('/api/movimentacoes/entrada', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-User-Id': user.id },
         body: JSON.stringify(payload)
       });
 

@@ -1,0 +1,35 @@
+// right-sidebar
+
+.custom-setting {
+    position: fixed;
+    bottom: 50%;
+    right: 0;
+    z-index: 1000;
+    .btn {
+        writing-mode: sidebar-rl;
+    }
+
+    #light-dark-mode {
+        .mdi-brightness-7 {
+            display: inline-block;
+        }
+
+        .mdi-white-balance-sunny {
+            display: none;
+        }
+    }
+}
+
+[data-bs-theme="dark"] {
+    .custom-setting {
+        #light-dark-mode {
+            .mdi-brightness-7 {
+                display: none;
+            }
+
+            .mdi-white-balance-sunny {
+                display: inline-block;
+            }
+        }
+    }
+}

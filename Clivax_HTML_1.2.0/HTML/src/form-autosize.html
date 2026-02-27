@@ -1,0 +1,86 @@
+@@include("partials/main.html")
+
+<head>
+
+    @@include("partials/title-meta.html", {"title": "Forms Autosize"})
+
+    @@include("partials/head-css.html")
+
+</head>
+
+@@include("partials/body.html")
+
+<!-- Begin page -->
+<div id="layout-wrapper">
+
+    @@include("partials/menu.html")
+
+    <!-- ============================================================== -->
+    <!-- Start right Content here -->
+    <!-- ============================================================== -->
+    <div class="main-content">
+
+        <div class="page-content">
+            <div class="container-fluid">
+
+                @@include("partials/page-title.html", {"pagetitle": "Forms", "title": "Autosize"})
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header card-header-bordered">
+                                <h3 class="card-title">Basic</h3>
+                            </div>
+                            <div class="card-body">
+                                <p class="text-muted">
+                                    <strong>Autosize</strong> will automatically resize your textarea to fit the content. You must initialize autosize via javascript: <code>autosize($('.autosize'))</code>. Check more API on
+                                    <a href="http://www.jacklmoore.com/autosize" target="_blank">Autosize's page</a>.
+                                </p>
+                                <textarea class="form-control autosize" placeholder="Type Something..."></textarea>
+                            </div>
+                        </div>
+                        <!-- end card -->
+                    </div>
+                    <!-- end col -->
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header card-header-bordered">
+                                <h3 class="card-title">Predefined value</h3>
+                            </div>
+                            <div class="card-body">
+                                <textarea class="form-control autosize" placeholder="Type Something...">Triggers the height adjustment for an assigned textarea element. Autosize will automatically adjust the textarea height on keyboard and window resize events. There is no efficient way for Autosize to monitor for when another script has changed the textarea value or for changes in layout that impact the textarea element.</textarea>
+                            </div>
+                        </div>
+                        <!-- end card -->
+                    </div>
+                    <!-- end col -->
+                </div>
+                <!-- end row -->
+            </div> <!-- container-fluid -->
+        </div>
+        <!-- End Page-content -->
+
+        @@include("partials/footer.html")
+
+    </div>
+    <!-- end main content-->
+
+</div>
+<!-- END layout-wrapper -->
+
+@@include("partials/right-sidebar.html")
+
+@@include("partials/vendor-scripts.html")
+
+<!-- bs custom file input plugin -->
+<script src="assets/libs/autosize/autosize.min.js"></script>
+
+<script>
+    "use strict"; $(function () { autosize($(".autosize")) });
+</script>
+
+<script src="assets/js/app.js"></script>
+
+</body>
+
+</html>

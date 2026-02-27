@@ -1,0 +1,27 @@
+// contextMenu.scss
+
+.context-menu-icon {
+    &::before {
+        color: var(--#{$prefix}body-color) !important;
+    }
+    &.context-menu-icon-mdi {
+        &::before {
+            font-family: "Material Design Icons" !important;
+            font-size: 16px !important;
+        }
+    }
+}
+
+.context-menu-item {
+    padding: 0.35rem 0.75rem !important;
+    >span{
+        margin-left: 1rem !important;
+    }
+    &.context-menu-hover {
+        background-color: var(--#{$prefix}tertiary-bg) !important;
+        color: $primary !important;
+        &::before {
+            color: $primary !important;
+        }
+    }
+}

@@ -1,0 +1,51 @@
+//_slick.scss
+
+.slick-prev,
+.slick-next {
+    z-index: 9;
+    // &:before{
+    //     font-size: 26px !important;
+    // }
+}
+.slick-prev {
+    left: 24px !important;
+}
+
+.slick-next {
+    right: 24px !important;
+}
+
+.slick-slide {
+    margin: 0 calc(#{$grid-gutter-width} / 2) 0 calc(#{$grid-gutter-width} / 2);
+}
+
+.slick-slider-center {
+    .slick-slide {
+        opacity: 0.5;
+        transition: all 300ms ease;
+    }
+
+    .slick-center {
+        opacity: 1;
+    }
+}
+
+.slick-dots {
+    li.slick-active {
+        button {
+            &:before {
+                opacity: 0.75;
+                color: $primary !important;
+            }
+        }
+    }
+    li {
+        button {
+            &:hover {
+                &:before {
+                    color: $primary !important;
+                }
+            }
+        }
+    }
+}

@@ -327,11 +327,10 @@ export default function AlmoxarifadosPage() {
     
     try {
       if (!user) return;
-      const res = await fetch(apiUrl(`/api/${endpoint}/${id}`), {
+      const res = await apiFetch(`/api/${endpoint}/${id}`, {
         method: 'DELETE',
-        headers: { 'X-User-Id': user.id }
       });
-      if (res.ok) fetchData(user.id);
+      if (res.ok) fetchData();
       else alert('Erro ao excluir. Verifique se existem itens vinculados.');
     } catch {
       alert('Erro de conexão');
@@ -349,8 +348,8 @@ export default function AlmoxarifadosPage() {
         else if (formData.tipo === 'setor') endpoint = 'setores';
 
       const url = editingId 
-        ? apiUrl(`/api/${endpoint}/${editingId}`)
-        : apiUrl(`/api/${endpoint}`);
+        ? `/api/${endpoint}/${editingId}`
+        : `/api/${endpoint}`;
       
       const method = editingId ? 'PUT' : 'POST';
 
@@ -375,9 +374,8 @@ export default function AlmoxarifadosPage() {
         payload.can_receive_inter_central = formData.can_receive_inter_central;
       }
 
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         method: method,
-        headers: { 'Content-Type': 'application/json', 'X-User-Id': user.id },
         body: JSON.stringify(payload)
       });
       
@@ -394,9 +392,8 @@ export default function AlmoxarifadosPage() {
           }
           const subId = editingId || createdId;
           if (subId) {
-            const linkRes = await fetch(apiUrl(`/api/sub_almoxarifados/${subId}/setores`), {
+            const linkRes = await apiFetch(`/api/sub_almoxarifados/${subId}/setores`, {
               method: 'PUT',
-              headers: { 'Content-Type': 'application/json', 'X-User-Id': user.id },
               body: JSON.stringify({ setor_ids: formData.sub_setor_ids })
             });
             if (!linkRes.ok) {
@@ -407,7 +404,7 @@ export default function AlmoxarifadosPage() {
         }
         setShowModal(false);
         resetForm();
-        fetchData(user.id);
+        fetchData();
       } else {
         const err = await res.json();
         alert('Erro ao salvar: ' + (err.detail || 'Erro desconhecido'));

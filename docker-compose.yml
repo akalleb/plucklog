@@ -1,27 +1,22 @@
 services:
-  plucklog_mongo:
-    image: mongo:latest
-    container_name: plucklog_mongo
-    restart: always
-    volumes:
-      - mongo_data:/data/db
-    ports:
-      - "27017:27017"
-    environment:
-      MONGO_INITDB_DATABASE: plucklog_db
-
   plucklog_fastapi:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: plucklog_fastapi
     restart: always
-    depends_on:
-      - plucklog_mongo
+    # APONTAMENTO EXATO: pasta fastapi_app, arquivo main, variável app
+    command: uvicorn fastapi_app.main:app --host 0.0.0.0 --port 8000
+    volumes:
+      - .:/app
+    working_dir: /app
     environment:
-      - MONGO_URI=mongodb://plucklog_mongo:27017
-      - MONGO_DB=plucklog_db
-      - CORS_ALLOW_ORIGINS=http://localhost,http://localhost:3000,http://localhost:80
+      - MONGO_URI=${MONGO_URI}
+      - MONGO_DB=${MONGO_DB}
+      - SECRET_KEY=${SECRET_KEY}
+      - CORS_ALLOW_ORIGINS=${CORS_ALLOW_ORIGINS}
+      - PYTHONPATH=${PYTHONPATH}
+      - PLUCKLOG_ENV=${PLUCKLOG_ENV}
     ports:
       - "8000:8000"
 
@@ -32,21 +27,8 @@ services:
     container_name: plucklog_frontend
     restart: always
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost/api
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+      - PLUCKLOG_ENV=${PLUCKLOG_ENV}
+
     ports:
       - "3000:3000"
-
-  plucklog_nginx:
-    image: nginx:alpine
-    container_name: plucklog_nginx
-    restart: always
-    ports:
-      - "8080:80"
-    volumes:
-      - ./nginx:/etc/nginx:ro
-    depends_on:
-      - plucklog_fastapi
-      - plucklog_frontend
-
-volumes:
-  mongo_data:

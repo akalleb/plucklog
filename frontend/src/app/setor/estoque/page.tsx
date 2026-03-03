@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, Package, Search } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { Loading } from '@/components/ui/Page';
-import { apiUrl } from '@/lib/api';
+import { apiFetch } from '@/lib/api';
 
 type EstoqueItem = { produto_id: string; produto_nome: string; produto_codigo: string; quantidade_disponivel: number };
 type SetorInfo = { id: string; nome: string };
@@ -42,14 +42,13 @@ export default function SetorEstoquePage() {
       });
       return;
     }
-    const headers = { 'X-User-Id': user.id };
     Promise.resolve().then(() => {
       setLoading(true);
       setError('');
     });
     Promise.all([
-      fetch(apiUrl(`/api/setores/${encodeURIComponent(user.scope_id)}`), { headers }).then(r => (r.ok ? r.json() : null)),
-      fetch(apiUrl(`/api/estoque/setor/${encodeURIComponent(user.scope_id)}`), { headers }).then(r => (r.ok ? r.json() : { items: [] })),
+      apiFetch(`/api/setores/${encodeURIComponent(user.scope_id)}`).then(r => (r.ok ? r.json() : null)),
+      apiFetch(`/api/estoque/setor/${encodeURIComponent(user.scope_id)}`).then(r => (r.ok ? r.json() : { items: [] })),
     ])
       .then(([s, est]) => {
         if (!s) throw new Error('Setor não encontrado');
@@ -84,13 +83,11 @@ export default function SetorEstoquePage() {
     setDetailsMovs([]);
     setDetailsLotes([]);
     try {
-      const headers = { 'X-User-Id': user.id };
       const [movRes, prodRes] = await Promise.all([
-        fetch(
-          apiUrl(`/api/movimentacoes/setor/${encodeURIComponent(user.scope_id)}?per_page=10&produto_id=${encodeURIComponent(it.produto_id)}`),
-          { headers }
+        apiFetch(
+          `/api/movimentacoes/setor/${encodeURIComponent(user.scope_id)}?per_page=10&produto_id=${encodeURIComponent(it.produto_id)}`
         ),
-        fetch(apiUrl(`/api/produtos/${encodeURIComponent(it.produto_id)}`), { headers }),
+        apiFetch(`/api/produtos/${encodeURIComponent(it.produto_id)}`),
       ]);
 
       const movJson = await movRes.json().catch(() => ({ items: [] }));

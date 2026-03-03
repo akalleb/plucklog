@@ -6,7 +6,7 @@ import { Package, ArrowLeft, MapPin, History, Box, Activity, Edit2 } from 'lucid
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { Loading } from '@/components/ui/Page';
-import { apiUrl } from '@/lib/api';
+import { apiFetch } from '@/lib/api';
 
 interface ProdutoDetalhes {
   id: string;
@@ -133,14 +133,24 @@ export default function ProdutoDetalhesPage() {
       router.replace('/setor');
       return;
     }
-    fetch(apiUrl(`/api/produtos/${params.id}`), { headers: { 'X-User-Id': user.id } })
-        .then(res => {
-          if (!res.ok) throw new Error('Produto não encontrado');
-          return res.json();
-        })
-        .then(data => setProduto(data))
-        .catch(err => console.error(err))
-        .finally(() => setLoading(false));
+    setLoading(true);
+    apiFetch(`/api/produtos/${params.id}`)
+      .then(res => {
+        if (res.status === 401) {
+          router.replace('/login');
+          return null;
+        }
+        if (!res.ok) {
+          if (res.status === 404) return null;
+          throw new Error('Erro ao carregar produto');
+        }
+        return res.json();
+      })
+      .then(data => {
+        if (data) setProduto(data);
+      })
+      .catch(err => console.error(err))
+      .finally(() => setLoading(false));
   }, [authLoading, params.id, router, user]);
 
   const openEditLote = (lote: {

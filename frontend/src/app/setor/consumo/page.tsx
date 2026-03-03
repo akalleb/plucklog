@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, ArrowLeftRight, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { Loading } from '@/components/ui/Page';
-import { apiUrl } from '@/lib/api';
+import { apiFetch } from '@/lib/api';
 
 type EstoqueItem = { produto_id: string; produto_nome: string; produto_codigo: string; quantidade_disponivel: number };
 type SetorInfo = { id: string; nome: string };
@@ -40,11 +40,16 @@ export default function SetorConsumoPage() {
   }, [items, produtoQuery]);
 
   const refresh = async (u: { id: string; scope_id: string }) => {
-    const headers = { 'X-User-Id': u.id };
-    const [s, est] = await Promise.all([
-      fetch(apiUrl(`/api/setores/${encodeURIComponent(u.scope_id)}`), { headers }).then(r => (r.ok ? r.json() : null)),
-      fetch(apiUrl(`/api/estoque/setor/${encodeURIComponent(u.scope_id)}`), { headers }).then(r => (r.ok ? r.json() : { items: [] })),
+    const [sRes, estRes] = await Promise.all([
+      apiFetch(`/api/setores/${encodeURIComponent(u.scope_id)}`),
+      apiFetch(`/api/estoque/setor/${encodeURIComponent(u.scope_id)}`),
     ]);
+    if (sRes.status === 401 || estRes.status === 401) {
+      router.replace('/login');
+      return;
+    }
+    const s = sRes.ok ? await sRes.json() : null;
+    const est = estRes.ok ? await estRes.json() : { items: [] };
     if (!s) throw new Error('Setor não encontrado');
     setSetor(s);
     setItems(est.items || []);
@@ -95,9 +100,8 @@ export default function SetorConsumoPage() {
     }
     setSending(true);
     try {
-      const res = await fetch(apiUrl('/api/movimentacoes/consumo'), {
+      const res = await apiFetch('/api/movimentacoes/consumo', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-User-Id': user.id },
         body: JSON.stringify({ produto_id: produtoId, quantidade: q, observacoes: observacoes || undefined }),
       });
       const data = await res.json().catch(() => ({}));

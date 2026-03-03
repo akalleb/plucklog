@@ -6,7 +6,7 @@ import { ArrowLeft, Package, ShoppingCart, Layers, AlertCircle, CheckCircle2 } f
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { Loading, Page } from '@/components/ui/Page';
-import { apiUrl } from '@/lib/api';
+import { apiFetch } from '@/lib/api';
 
 type Origem = { tipo: 'almoxarifado' | 'sub_almoxarifado'; id: string; nome: string; quantidade_disponivel: number };
 type CentralProduto = { produto_id: string; produto_nome: string; produto_codigo: string; total_disponivel: number; origens: Origem[] };
@@ -50,32 +50,35 @@ export default function SaidaSetorPage() {
   const [undoQuantidade, setUndoQuantidade] = useState('');
   const [undoDestinoKey, setUndoDestinoKey] = useState('');
 
-  const fetchAll = useCallback(async (u: { id: string }) => {
-    const headers = { 'X-User-Id': u.id };
-    const setorRes = await fetch(apiUrl(`/api/setores/${encodeURIComponent(setorId)}`), { headers });
+  const fetchAll = useCallback(async () => {
+    const setorRes = await apiFetch(`/api/setores/${encodeURIComponent(setorId)}`);
+    if (setorRes.status === 401) {
+      router.replace('/login');
+      return;
+    }
     const setorData = setorRes.ok ? await setorRes.json() : null;
-    if (!setorRes.ok || !setorData) throw new Error('Setor não encontrado');
+    if (!setorData) throw new Error('Setor não encontrado');
     setSetor(setorData);
 
     const centralId = setorData.central_id;
     if (!centralId) throw new Error('Setor sem central associada');
 
     const [resCentral, resSetor] = await Promise.all([
-      fetch(apiUrl(`/api/estoque/central/${encodeURIComponent(String(centralId))}`), { headers }),
-      fetch(apiUrl(`/api/estoque/setor/${encodeURIComponent(setorId)}`), { headers }),
+      apiFetch(`/api/estoque/central/${encodeURIComponent(String(centralId))}`),
+      apiFetch(`/api/estoque/setor/${encodeURIComponent(setorId)}`),
     ]);
     const centralJson = resCentral.ok ? await resCentral.json() : { items: [] };
     const setorJson = resSetor.ok ? await resSetor.json() : { items: [] };
     setCentralProdutos(centralJson.items || []);
     setSetorProdutos(setorJson.items || []);
-  }, [setorId]);
+  }, [router, setorId]);
 
   useEffect(() => {
     if (authLoading) return;
     if (!user) return;
     setLoading(true);
     setError('');
-    fetchAll(user)
+    fetchAll()
       .catch((e: unknown) => setError(e instanceof Error ? e.message : 'Erro ao carregar'))
       .finally(() => setLoading(false));
   }, [authLoading, user, fetchAll]);
@@ -166,9 +169,8 @@ export default function SaidaSetorPage() {
     setLoading(true);
     try {
       for (const item of cart) {
-        const res = await fetch(apiUrl('/api/movimentacoes/distribuicao'), {
+        const res = await apiFetch('/api/movimentacoes/distribuicao', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-User-Id': user.id },
           body: JSON.stringify({
             produto_id: item.produto_id,
             quantidade: Number(item.quantidade),
@@ -182,7 +184,7 @@ export default function SaidaSetorPage() {
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.detail || 'Erro ao enviar');
       }
-      await fetchAll(user);
+      await fetchAll();
       setCart([]);
       setSuccess('Saída registrada com sucesso');
       setTab('setor');
@@ -236,9 +238,8 @@ export default function SaidaSetorPage() {
 
     setLoading(true);
     try {
-      const res = await fetch(apiUrl('/api/movimentacoes/estorno_distribuicao'), {
+      const res = await apiFetch('/api/movimentacoes/estorno_distribuicao', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-User-Id': user.id },
         body: JSON.stringify({
           produto_id: p.produto_id,
           quantidade: q,
@@ -251,7 +252,7 @@ export default function SaidaSetorPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.detail || 'Erro ao estornar');
-      await fetchAll(user);
+      await fetchAll();
       setSuccess('Estorno realizado com sucesso');
       cancelarEstorno();
     } catch (e: unknown) {

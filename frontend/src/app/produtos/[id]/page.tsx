@@ -232,18 +232,17 @@ export default function ProdutoDetalhesPage() {
       );
       if (!ok) return;
 
-      const res = await fetch(apiUrl(`/api/lotes/${editingLote.id}`), {
+      const res = await apiFetch(`/api/lotes/${editingLote.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'X-User-Id': user.id },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.detail || 'Erro ao salvar lote');
 
       if (params.id) {
-        const refreshed = await fetch(apiUrl(`/api/produtos/${params.id}`), { headers: { 'X-User-Id': user.id } }).then(r => r.json());
-        setProduto(refreshed);
+        const refreshed = await apiFetch(`/api/produtos/${params.id}`).then(r => (r.ok ? r.json() : null));
+        if (refreshed) setProduto(await refreshed);
       }
       setShowModal(false);
       setEditingLote(null);
@@ -282,16 +281,15 @@ export default function ProdutoDetalhesPage() {
     setDeletingLote(true);
     try {
       const qs = purgeProduto ? '?purge_produto=true' : '';
-      const res = await fetch(apiUrl(`/api/lotes/${editingLote.id}${qs}`), {
+      const res = await apiFetch(`/api/lotes/${editingLote.id}${qs}`, {
         method: 'DELETE',
-        headers: { 'X-User-Id': user.id }
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.detail || 'Erro ao excluir lote');
 
       if (params.id) {
-        const refreshed = await fetch(apiUrl(`/api/produtos/${params.id}`), { headers: { 'X-User-Id': user.id } }).then(r => r.json());
-        setProduto(refreshed);
+        const refreshed = await apiFetch(`/api/produtos/${params.id}`).then(r => (r.ok ? r.json() : null));
+        if (refreshed) setProduto(await refreshed);
       }
       setShowModal(false);
       setEditingLote(null);
@@ -315,15 +313,14 @@ export default function ProdutoDetalhesPage() {
 
     setCleaningProduto(true);
     try {
-      const res = await fetch(apiUrl(`/api/produtos/${params.id}/limpar_dados_sem_lotes`), {
+      const res = await apiFetch(`/api/produtos/${params.id}/limpar_dados_sem_lotes`, {
         method: 'POST',
-        headers: { 'X-User-Id': user.id }
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.detail || 'Erro ao limpar dados');
 
-      const refreshed = await fetch(apiUrl(`/api/produtos/${params.id}`), { headers: { 'X-User-Id': user.id } }).then(r => r.json());
-      setProduto(refreshed);
+      const refreshed = await apiFetch(`/api/produtos/${params.id}`).then(r => (r.ok ? r.json() : null));
+      if (refreshed) setProduto(await refreshed);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Erro ao limpar dados';
       alert(message);
